@@ -546,6 +546,7 @@ async function draw(m, onTry) {
       }
       const it = s.pool[kind].pop();
       if (!it) { skip.add(s.id); continue; }
+      if (seen.has(it.key)) continue;
       if (it.resolve) { await it.resolve(it); delete it.resolve; }
       if (!it.audio) throw new Error('no audio');
       if (it.art) { try { await loadImg(it.art); } catch (e) { it.art = ''; } }

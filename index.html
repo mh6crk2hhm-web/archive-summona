@@ -142,7 +142,7 @@ button{cursor:pointer}
 
 @media (max-width:640px){
   .seg{order:3;flex:1 1 100%;margin:0}
-  .seg button{flex:1;padding:6px 2px;font-size:12.5px}
+  .seg button{flex:1 1 auto;padding:6px 4px;font-size:12.5px}
   .tools{margin-left:auto}
   .acts{flex:1 1 100%}
   .acts .btn{flex:1 1 auto;justify-content:center}
@@ -160,6 +160,7 @@ button{cursor:pointer}
     <button type="button" role="radio" data-mode="p" aria-checked="false">Photographs</button>
     <button type="button" role="radio" data-mode="a" aria-checked="false">Art</button>
     <button type="button" role="radio" data-mode="d" aria-checked="false">Design</button>
+    <button type="button" role="radio" data-mode="n" aria-checked="false">Contemporary</button>
   </div>
   <div class="tools">
     <button type="button" class="btn" id="btn-sources" aria-expanded="false">Sources <span class="count" id="n-sources"></span></button>
@@ -265,8 +266,8 @@ async function resolveImage(item) {
 }
 
 /* ================= museum indexes, kept beside the page and read a slice at a time ================= */
-const CHUNKS = {"moma":{"p":28,"d":15,"a":17,"c":1},"tate":{"p":1,"a":28},"nga":{"p":3,"d":19,"a":20},"ch":{"d":42}};
-const BUILD = '202610032317';
+const CHUNKS = {"moma":{"p":28,"d":15,"a":17,"c":1,"n":26},"tate":{"p":1,"a":28,"n":9},"nga":{"p":3,"d":19,"a":20},"ch":{"d":42}};
+const BUILD = '202610040236';
 const chunkCache = new Map();
 async function chunk(name, kind) {
   const n = (CHUNKS[name] || {})[kind] || 0;
@@ -296,7 +297,8 @@ const MET_Q = {
 const metIds = {};
 const VAM_TYPES = {
   p: ['photograph'], a: ['print', 'drawing', 'painting', 'watercolour'],
-  d: ['poster', 'wallpaper', 'textile design', 'furnishing fabric', 'design', 'architectural drawing', 'book jacket', 'fashion design', 'tile']
+  d: ['poster', 'wallpaper', 'textile design', 'furnishing fabric', 'design', 'architectural drawing', 'book jacket', 'fashion design', 'tile'],
+  n: ['print', 'photograph', 'poster', 'drawing', 'painting', 'sculpture', 'artist\'s book', 'collage']
 };
 const VAM_COMPUTER = ['q=plotter', 'q=computer-generated', 'q=%22computer%20art%22'];
 const vamFetch = (query, page) => getJSON('https://api.vam.ac.uk/v2/objects/search?images_exist=1&page_size=50&page=' + page + '&' + query);
@@ -322,7 +324,9 @@ const LOC = [
   ['gottscho-schleisner', 29010, 'Gottscho-Schleisner', 2, 'p'],
   ['works-progress-administration-posters', 947, 'Work Projects Administration posters', 1, 'd']
 ];
-const totals = { smk: 39505, aicPages: 1331 };
+const totals = { smkA: 39505, smkN: 6000, aicPages: 1331, whitneyPages: 916 };
+const SINCE = 1970; // what the Contemporary filter counts as contemporary
+const firstYear = s => { const m = /(1[89]\d\d|20\d\d)/.exec(String(s || '')); return m ? +m[1] : 0; };
 
 const nameCase = s => String(s || '').replace(/\b([a-zà-ÿ])([a-zà-ÿ']*)/g, (m, a, b) => a.toUpperCase() + b);
 function locPerson(c) {
@@ -362,17 +366,40 @@ function commons(searches, kind) {
 
 const SOURCES = [
   {
-    id: 'moma', name: 'MoMA', full: 'The Museum of Modern Art, New York', kinds: ['p', 'a', 'd'], weight: 2,
-    note: 'Index of 59,813 works from MoMA’s published collection data, with all of Architecture & Design. Images load from moma.org at 1,024 px.',
+    id: 'moma', name: 'MoMA', full: 'The Museum of Modern Art, New York', kinds: ['p', 'a', 'd', 'n'], weight: 2,
+    note: 'Index of 59,813 works from MoMA’s published collection data, with all of Architecture & Design and 25,402 works made since 1970. Images load from moma.org at 1,024 px.',
     refill: fromIndex('moma', momaItem)
   },
   {
-    id: 'tate', name: 'Tate', full: 'Tate, London', kinds: ['p', 'a'], weight: 2,
-    note: 'Index of 28,151 works from Tate’s published collection data (works acquired up to 2014).',
+    id: 'tate', name: 'Tate', full: 'Tate, London', kinds: ['p', 'a', 'n'], weight: 2,
+    note: 'Index of 28,151 works from Tate’s published collection data (works acquired up to 2014), 8,207 of them made since 1970.',
     refill: fromIndex('tate', ([acc, title, artist, date, medium], kind) => {
       const base = 'https://media.tate.org.uk/art/images/work/' + acc[0] + '/' + acc.slice(0, 3) + '/' + acc;
       return { kind, title, artist, date, medium, src: [base + '_10.jpg', base + '_9.jpg'], link: 'https://www.tate.org.uk/art/work/' + acc };
     })
+  },
+  {
+    id: 'whitney', name: 'Whitney', full: 'Whitney Museum of American Art, New York', kinds: ['n', 'a', 'p'], weight: 2,
+    note: 'Live. American art of the twentieth and twenty-first centuries, with a focus on living artists.',
+    keep: 8,
+    async refill() {
+      const fetchPage = p => getJSON('https://whitney.org/api/artworks?page=' + p);
+      let d = await fetchPage(rand(1, totals.whitneyPages));
+      const last = /[?&]page=(\d+)/.exec((d.links && d.links.last) || '');
+      if (last) totals.whitneyPages = +last[1];
+      if (!(d.data || []).length) d = await fetchPage(rand(1, totals.whitneyPages));
+      return (d.data || []).map(row => {
+        const x = row.attributes || {};
+        const img = (x.images || []).map(i => i && i.url).find(Boolean);
+        if (!img) return null;
+        return {
+          kind: firstYear(x.display_date) >= SINCE ? 'n' : /photograph/i.test(x.classification || '') ? 'p' : 'a',
+          src: [img],
+          title: clip(x.title, 140), artist: clip(x.display_artist_text, 90), date: x.display_date || '', medium: clip(x.medium, 90),
+          link: 'https://whitney.org/collection/works/' + (x.id || row.id)
+        };
+      }).filter(Boolean);
+    }
   },
   {
     id: 'tnm', name: 'Tokyo National Museum', full: 'Tokyo National Museum, via Wikimedia Commons', kinds: ['a'], weight: 2,
@@ -406,18 +433,18 @@ const SOURCES = [
     }
   },
   {
-    id: 'aic', name: 'Art Institute of Chicago', full: 'Art Institute of Chicago', kinds: ['p', 'a', 'd'], weight: 1.5,
-    note: 'Live. Up to 1,686 px for public-domain works.',
+    id: 'aic', name: 'Art Institute of Chicago', full: 'Art Institute of Chicago', kinds: ['p', 'a', 'd', 'n'], weight: 1.5,
+    note: 'Live. Up to 1,686 px for public-domain works, 843 px for works still in copyright.',
     keep: 6,
     async refill() {
-      const fetchPage = p => getJSON('https://api.artic.edu/api/v1/artworks?page=' + p + '&limit=100&fields=id,title,artist_title,artist_display,date_display,medium_display,image_id,artwork_type_title,department_title');
+      const fetchPage = p => getJSON('https://api.artic.edu/api/v1/artworks?page=' + p + '&limit=100&fields=id,title,artist_title,artist_display,date_display,medium_display,image_id,artwork_type_title,department_title,date_start');
       let d = await fetchPage(rand(1, totals.aicPages));
       if (d.pagination && d.pagination.total_pages) totals.aicPages = d.pagination.total_pages;
       if (!(d.data || []).length) d = await fetchPage(rand(1, totals.aicPages));
       return (d.data || []).filter(x => x.image_id).map(x => {
         const iiif = 'https://www.artic.edu/iiif/2/' + x.image_id + '/full/';
         return {
-          kind: /photograph/i.test(x.artwork_type_title || '') ? 'p'
+          kind: +x.date_start >= SINCE ? 'n' : /photograph/i.test(x.artwork_type_title || '') ? 'p'
             : /^(Architecture and Design|Textiles)$/.test(x.department_title || '') || /design|architect|textile|poster/i.test(x.artwork_type_title || '') ? 'd' : 'a',
           src: [iiif + '1686,/0/default.jpg', iiif + '843,/0/default.jpg'], preview: iiif + '843,/0/default.jpg',
           title: clip(x.title, 140), artist: x.artist_title || String(x.artist_display || '').split('\n')[0], date: x.date_display || '', medium: clip(x.medium_display, 90),
@@ -454,12 +481,12 @@ const SOURCES = [
     }
   },
   {
-    id: 'vam', name: 'V&A', full: 'Victoria and Albert Museum, London', kinds: ['p', 'a', 'd'], weight: 1.5,
+    id: 'vam', name: 'V&A', full: 'Victoria and Albert Museum, London', kinds: ['p', 'a', 'd', 'n'], weight: 1.5,
     note: 'Live. Photographs, prints and drawings; posters, wallpapers, textile and fashion designs. Up to 2,500 px.',
     keep: 6,
     async refill(kind) {
       const decade = kind === 'p' ? 1850 + 10 * rand(0, 13) : 0;
-      const query = 'q_object_type=' + encodeURIComponent(pick(VAM_TYPES[kind])) + (decade ? '&year_made_from=' + decade + '&year_made_to=' + (decade + 9) : '');
+      const query = 'q_object_type=' + encodeURIComponent(pick(VAM_TYPES[kind])) + (decade ? '&year_made_from=' + decade + '&year_made_to=' + (decade + 9) : '') + (kind === 'n' ? '&year_made_from=' + SINCE : '');
       let d = await vamFetch(query, rand(1, 20));
       if (!(d.records || []).length) d = await vamFetch(query, rand(1, Math.max(1, Math.min((d.info && d.info.pages) || 1, 20))));
       return (d.records || []).filter(r => r._primaryImageId).map(r => vamItem(r, kind));
@@ -525,13 +552,23 @@ const SOURCES = [
     }
   },
   {
-    id: 'smk', name: 'SMK Copenhagen', full: 'Statens Museum for Kunst, Copenhagen', kinds: ['a'], weight: 1,
-    note: 'Live. Public-domain paintings, drawings and prints from the Danish national gallery.',
-    async refill() {
+    id: 'smk', name: 'SMK Copenhagen', full: 'Statens Museum for Kunst, Copenhagen', kinds: ['a', 'n'], weight: 1,
+    note: 'Live. The Danish national gallery: public-domain paintings, drawings and prints, and Danish and Nordic art made since 1970.',
+    async refill(kind) {
+      const tk = kind === 'n' ? 'smkN' : 'smkA';
+      const query = kind === 'n'
+        ? 'filters=' + encodeURIComponent('[has_image:true]') + '&range=' + encodeURIComponent('[production_dates_end:{' + SINCE + '-01-01T00:00:00.000Z;2100-01-01T00:00:00.000Z}]')
+        : 'filters=' + encodeURIComponent('[has_image:true],[public_domain:true]');
+      const fetchAt = offset => getJSON('https://api.smk.dk/api/v1/art/search/?keys=*&' + query + '&offset=' + offset + '&rows=1');
       const one = async () => {
-        const d = await getJSON('https://api.smk.dk/api/v1/art/search/?keys=*&filters=' + encodeURIComponent('[has_image:true],[public_domain:true]') + '&offset=' + rand(0, totals.smk - 1) + '&rows=1');
-        if (d.found) totals.smk = d.found;
-        return d.items || (d.item ? [d.item] : []);
+        let d = await fetchAt(rand(0, totals[tk] - 1));
+        const items = d.items || (d.item ? [d.item] : []);
+        if (d.found) {
+          const overshot = !items.length && d.found < totals[tk];
+          totals[tk] = d.found;
+          if (overshot) { d = await fetchAt(rand(0, d.found - 1)); return d.items || (d.item ? [d.item] : []); }
+        }
+        return items;
       };
       const got = (await Promise.allSettled([one(), one(), one()])).filter(r => r.status === 'fulfilled').flatMap(r => r.value);
       if (!got.length) throw new Error('no answer');
@@ -539,7 +576,7 @@ const SOURCES = [
         const pr = (x.production && x.production[0]) || {};
         const who = [pr.creator_forename, pr.creator_surname].filter(Boolean).join(' ') || pr.creator || '';
         return {
-          kind: 'a',
+          kind,
           src: [x.image_iiif_id && x.image_iiif_id + '/full/!2048,/0/default.jpg', x.image_thumbnail].filter(Boolean), preview: x.image_thumbnail || undefined,
           title: clip((x.titles && x.titles[0] && x.titles[0].title) || x.object_number, 140), artist: who,
           date: (x.production_date && x.production_date[0] && x.production_date[0].period) || '', medium: clip((x.techniques || []).join(', '), 90),
@@ -578,12 +615,12 @@ const SOURCES = [
     }
   }
 ];
-const KIND = { p: 'Photographs', a: 'Art', d: 'Design', c: 'Computer-era' };
-for (const s of SOURCES) { s.pool = { p: [], a: [], d: [], c: [] }; s.shown = 0; s.misses = 0; s.imgFails = 0; s.drawn = 0; s.coolUntil = 0; s.down = false; }
+const KIND = { p: 'Photographs', a: 'Art', d: 'Design', n: 'Contemporary', c: 'Computer-era' };
+for (const s of SOURCES) { s.pool = { p: [], a: [], d: [], n: [], c: [] }; s.shown = 0; s.misses = 0; s.imgFails = 0; s.drawn = 0; s.coolUntil = 0; s.down = false; }
 
 /* ================= state ================= */
 let mode = store.get('mode', 'all');
-if (!['all', 'p', 'a', 'd'].includes(mode)) mode = 'all';
+if (!['all', 'p', 'a', 'd', 'n'].includes(mode)) mode = 'all';
 let savedOff = store.get('off', []);
 if (!Array.isArray(savedOff)) savedOff = [];
 const enabled = Object.fromEntries(SOURCES.map(s => [s.id, !savedOff.includes(s.id)]));
@@ -633,6 +670,7 @@ async function draw(m, onTry) {
       }
       const it = s.pool[kind].pop();
       if (!it) { s.misses++; if (s.misses >= 3) { skip.add(s.id); s.misses = 0; } continue; }
+      if (seen.has(it.link)) continue; // the same work can arrive twice from overlapping pages
       it.sid = s.id; it.source = it.source || s.name; it.credit = it.credit || s.full;
       await resolveImage(it);
       seen.add(it.link);
