@@ -591,6 +591,11 @@ const SOURCES = [
     refill: commons(['intitle:"Google Art Project" filew:>4000'], 'a')
   },
   {
+    id: 'auction', name: 'Auction houses', full: 'Sold at auction, via Wikimedia Commons', kinds: ['a'], weight: 1,
+    note: 'Live. Paintings and drawings photographed for Sotheby’s, Christie’s, Bonhams and Dorotheum sales, held on Wikimedia Commons. Out-of-copyright works only, many now in private hands.',
+    refill: commons(['"Sotheby\'s" filew:>2000', '"Christie\'s" filew:>2000', '"Bonhams" filew:>2000', '"Dorotheum" filew:>2000'], 'a')
+  },
+  {
     id: 'arch', name: 'National archives', full: 'National archives, via Wikimedia Commons', kinds: ['p'], weight: 1,
     note: 'Live. Photographs from the Dutch Nationaal Archief, the U.S. National Archives and state libraries, held on Wikimedia Commons.',
     refill: commons(['"Nationaal Archief" filew:>2400', '"National Archives and Records Administration" filew:>3000 filemime:image/jpeg', '"State Library of New South Wales" filew:>2400', '"State Library of Queensland" filew:>2400'], 'p')
