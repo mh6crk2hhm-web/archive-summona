@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Sound Summoner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Libre+Franklin:ital,wght@0,400;0,600;0,800;1,400&display=swap">
+<style>
+/* Layout: one screen. The record's own label sits on a grey-card wall; a transport strip under it; the wall label below; one yellow button summons. */
+:root{
+  --wall:#8e8d8a;
+  --paper:#f1f0ec;
+  --ink:#161615;
+  --muted:#5d5c58;
+  --line:#cfcec8;
+  --accent:#f5b800;
+  --accent-ink:#161615;
+  --shadow:rgba(0,0,0,.34);
+  --sans:"Libre Franklin","Franklin Gothic Medium","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --wall:#272726; --paper:#151514; --ink:#eceae4; --muted:#a09e97; --line:#35342f;
+    --shadow:rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto auto;
+  background:var(--wall);color:var(--ink);
+  font:400 15px/1.45 var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+[hidden]{display:none!important}
+button,a,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- top bar ---------- */
+.bar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;
+  padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));
+  background:var(--paper);border-bottom:1px solid var(--line);
+}
+.mark{display:flex;align-items:center;gap:10px;margin:0;font:800 13px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+.mark .steps{display:flex;outline:1px solid var(--line)}
+.mark .steps i{width:6px;height:14px}
+.steps i:nth-child(1){background:#f6f5f1}.steps i:nth-child(2){background:#c4c3bf}.steps i:nth-child(3){background:#8e8d8a}.steps i:nth-child(4){background:#55544f}.steps i:nth-child(5){background:#161615}
+.filters{display:flex;flex-wrap:wrap;gap:8px;margin-inline:auto;align-items:center}
+.seg{display:flex;border:1px solid var(--ink);border-radius:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;font-size:13px;line-height:1.2;white-space:nowrap}
+.seg button+button{border-left:1px solid var(--ink)}
+.seg button[aria-checked="true"]{background:var(--ink);color:var(--paper)}
+.word{
+  width:18em;max-width:100%;border:1px solid var(--line);border-radius:2px;background:transparent;
+  padding:6px 10px;font-size:13px;line-height:1.2;
+}
+.word::placeholder{color:var(--muted)}
+.word:hover{border-color:var(--ink)}
+.tools{display:flex;gap:8px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none;
+  border:1px solid var(--line);border-radius:2px;background:transparent;
+  padding:7px 12px;font-size:13px;line-height:1.2;
+}
+.btn:hover{border-color:var(--ink)}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.4;pointer-events:none}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.count{font:500 11px/1 var(--mono);color:var(--muted)}
+.btn[aria-pressed="true"] .count{color:inherit}
+
+/* ---------- wall ---------- */
+.stage{position:relative;display:grid;grid-template:minmax(0,1fr)/minmax(0,1fr);place-items:center;padding:clamp(14px,3.2vw,44px);min-height:0}
+#art{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 10px 26px var(--shadow));transition:opacity .25s}
+.stage.busy #art,.stage.busy .disc{opacity:.45}
+/* a plain disc for recordings that come without a label photograph */
+.disc{
+  height:min(100%,62vw);aspect-ratio:1;border-radius:50%;transition:opacity .25s;
+  background:
+    radial-gradient(circle,var(--paper) 0 2.2%,transparent 2.4%),
+    radial-gradient(circle,#b7372c 0 19%,transparent 19.4%),
+    repeating-radial-gradient(circle,#141413 0 1.1%,#232321 1.1% 1.5%);
+  box-shadow:0 10px 26px var(--shadow);
+}
+.wait{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  display:grid;gap:12px;justify-items:center;text-align:center;
+  width:max-content;max-width:calc(100% - 32px);
+  padding:16px 20px;background:var(--paper);border:1px solid var(--line);border-radius:2px;
+  box-shadow:0 10px 30px var(--shadow);
+}
+.wait p{margin:0;font:400 12px/1.4 var(--mono);text-wrap:balance}
+.wedge{display:flex;outline:1px solid var(--line)}
+.wedge i{width:16px;height:22px;animation:step 1.32s linear infinite}
+.wedge i:nth-child(1){background:#f6f5f1}.wedge i:nth-child(2){background:#e0dfdb;animation-delay:.12s}
+.wedge i:nth-child(3){background:#c9c8c4;animation-delay:.24s}.wedge i:nth-child(4){background:#b1b0ac;animation-delay:.36s}
+.wedge i:nth-child(5){background:#9a9995;animation-delay:.48s}.wedge i:nth-child(6){background:#83827e;animation-delay:.6s}
+.wedge i:nth-child(7){background:#6c6b67;animation-delay:.72s}.wedge i:nth-child(8){background:#555450;animation-delay:.84s}
+.wedge i:nth-child(9){background:#3f3e3b;animation-delay:.96s}.wedge i:nth-child(10){background:#2a2928;animation-delay:1.08s}
+.wedge i:nth-child(11){background:#161615;animation-delay:1.2s}
+@keyframes step{0%,100%{transform:none}8%{transform:translateY(-5px)}16%{transform:none}}
+.wait.stuck .wedge i{animation:none}
+@media (prefers-reduced-motion:reduce){.wedge i{animation:none}#art,.disc{transition:none}}
+
+/* ---------- transport ---------- */
+.deck{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
+  padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));
+  background:var(--paper);border-top:1px solid var(--line);
+}
+.play{min-width:5.2em;justify-content:center;background:var(--ink);color:var(--paper);border-color:var(--ink);font-weight:600}
+.scrub{flex:1 1 220px;min-width:0;display:flex;align-items:center;gap:10px}
+.time{font:400 12px/1 var(--mono);font-variant-numeric:tabular-nums;color:var(--muted);min-width:3.2em}
+.time:last-child{text-align:right}
+#seek{flex:1;min-width:0;accent-color:var(--ink);height:22px;margin:0}
+.speed{display:inline-flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.speed select{border:1px solid var(--line);border-radius:2px;background:var(--paper);color:var(--ink);padding:6px 8px;font-size:13px}
+
+/* ---------- wall label ---------- */
+.plate{
+  display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 28px;
+  padding:14px max(16px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left));
+  background:var(--paper);border-top:1px solid var(--line);
+}
+.label{flex:1 1 320px;min-width:0;max-width:72ch;display:grid;gap:2px}
+.label p{margin:0;overflow-wrap:anywhere}
+.l-artist{font-weight:600}
+.l-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.l-title cite{font-style:italic}
+.l-medium,.l-rights{color:var(--muted);font-size:13px}
+.l-src{margin-top:6px!important;font:400 11.5px/1.4 var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.primary{
+  background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent-ink);border-radius:2px;
+  padding:10px 18px;font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:10px;
+}
+.primary:hover{filter:brightness(1.06)}
+.primary:active{transform:translateY(1px)}
+.primary kbd{font:500 10.5px/1 var(--mono);letter-spacing:0;text-transform:none;border:1px solid currentColor;border-radius:2px;padding:3px 5px;opacity:.75}
+
+/* ---------- drawers ---------- */
+.drawer{
+  position:fixed;z-index:5;top:0;right:0;bottom:0;width:min(420px,100%);
+  display:grid;grid-template-rows:auto minmax(0,1fr);
+  background:var(--paper);border-left:1px solid var(--line);box-shadow:-18px 0 40px var(--shadow);
+  padding-top:env(safe-area-inset-top,0px);
+}
+.drawer header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.drawer h2{margin:0;font:800 13px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase}
+.drawer h3{margin:18px 0 4px;font:600 13px/1.3 var(--sans)}
+.drawer .body{overflow:auto;padding:6px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.drawer .hint{margin:10px 0 4px;color:var(--muted);font-size:13px}
+.src-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.src-row input{margin:3px 0 0;width:16px;height:16px;accent-color:var(--ink)}
+.src-row b{font-weight:600}
+.src-row small{grid-column:2;color:var(--muted);font-size:12.5px}
+.src-row .stat{grid-column:2;font:400 11px/1.4 var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+.crate{display:grid;gap:0;padding-top:6px}
+.crate-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:10px 0;border-bottom:1px solid var(--line)}
+.crate-row .load{grid-column:1;text-align:left;border:0;background:none;padding:0;font-size:14px;line-height:1.35;overflow-wrap:anywhere}
+.crate-row .load span{display:block;color:var(--muted);font-size:12.5px}
+.crate-row .rm{align-self:start;border:0;background:none;padding:2px 0;font:400 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.03em;color:var(--muted);text-decoration:underline}
+
+@media (max-width:700px){
+  .filters{order:3;flex:1 1 100%;margin:0}
+  .seg{flex:1 1 100%}
+  .seg button{flex:1;padding:6px 2px;font-size:12.5px}
+  .word{flex:1 1 100%;width:auto}
+  .tools{margin-left:auto}
+  .scrub{order:-1;flex:1 1 100%}
+  .acts{flex:1 1 100%}
+  .acts .btn{flex:1 1 auto;justify-content:center}
+  .primary{flex:1 1 100%;justify-content:center;order:-1}
+  .primary kbd{display:none}
+}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1 class="mark"><span class="steps" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Sound Summoner</h1>
+  <div class="filters">
+    <div class="seg" role="radiogroup" aria-label="What to summon">
+      <button type="button" role="radio" data-mode="all" aria-checked="true">Everything</button>
+      <button type="button" role="radio" data-mode="r" aria-checked="false">Early records</button>
+      <button type="button" role="radio" data-mode="f" aria-checked="false">Film sound</button>
+      <button type="button" role="radio" data-mode="c" aria-checked="false">Classical</button>
+    </div>
+    <input class="word" id="word" type="search" autocomplete="off" spellcheck="false" placeholder="Any word: piano, blues, waltz…" aria-label="Only recordings that mention this word">
+  </div>
+  <div class="tools">
+    <button type="button" class="btn" id="btn-sources" aria-expanded="false">Sources <span class="count" id="n-sources"></span></button>
+    <button type="button" class="btn" id="btn-kept" aria-expanded="false">Crate <span class="count" id="n-kept">0</span></button>
+  </div>
+</header>
+
+<main class="stage busy" id="stage">
+  <img id="art" alt="" referrerpolicy="no-referrer" hidden>
+  <div class="disc" id="disc" aria-hidden="true" hidden></div>
+  <div class="wait" id="wait" role="status" aria-live="polite">
+    <div class="wedge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <p id="wait-text">Summoning…</p>
+  </div>
+</main>
+
+<section class="deck" aria-label="Player">
+  <button type="button" class="btn play" id="btn-play" disabled>Play</button>
+  <div class="scrub">
+    <span class="time" id="t-now">0:00</span>
+    <input type="range" id="seek" min="0" max="1000" step="1" value="0" aria-label="Position in the recording" disabled>
+    <span class="time" id="t-len">0:00</span>
+  </div>
+  <button type="button" class="btn" id="btn-drop" disabled>Drop the needle</button>
+  <label class="speed" for="speed">Speed
+    <select id="speed">
+      <option value="0.5">50%</option><option value="0.67">67%</option><option value="0.8">80%</option><option value="0.9">90%</option>
+      <option value="1" selected>100%</option>
+      <option value="1.1">110%</option><option value="1.25">125%</option><option value="1.5">150%</option>
+    </select>
+  </label>
+</section>
+
+<footer class="plate">
+  <article class="label" id="label" aria-live="polite">
+    <p class="l-artist" id="l-artist">Nothing on the turntable yet</p>
+    <p class="l-title"><cite id="l-title"></cite><span id="l-date"></span></p>
+    <p class="l-medium" id="l-medium">The first recording is on its way.</p>
+    <p class="l-rights" id="l-rights"></p>
+    <p class="l-src" id="l-src"></p>
+  </article>
+  <nav class="acts" aria-label="Recording actions">
+    <button type="button" class="btn" id="btn-back" disabled>← Back</button>
+    <button type="button" class="btn" id="btn-keep" aria-pressed="false" disabled>Keep</button>
+    <a class="btn" id="lnk-record" target="_blank" rel="noopener" aria-disabled="true">Record ↗</a>
+    <a class="btn" id="lnk-file" target="_blank" rel="noopener" aria-disabled="true">Audio file ↗</a>
+    <button type="button" class="primary" id="btn-summon">Summon <kbd>→</kbd></button>
+  </nav>
+</footer>
+
+<aside class="drawer" id="drawer-sources" aria-label="Sources" hidden>
+  <header><h2>Sources</h2><button type="button" class="btn" data-close>Close</button></header>
+  <div class="body">
+    <h3>What counts as free to sample here</h3>
+    <p class="hint">In the United States, sound recordings published before <span id="pd-line"></span> are in the public domain, and the line moves forward a year each January. Early records are only drawn when dated <span id="pd-year"></span> or earlier, which leaves a year between recording and release. Other countries have different rules. Each recording's label shows why it is here; read its record page before you release anything built on it. This is a guide, not legal advice.</p>
+    <h3>Collections</h3>
+    <p class="hint">Untick a collection to leave it out. A collection that doesn't answer is skipped for a minute and tried again.</p>
+    <div id="src-list"></div>
+  </div>
+</aside>
+
+<aside class="drawer" id="drawer-kept" aria-label="Crate" hidden>
+  <header><h2>Crate</h2><button type="button" class="btn" data-close>Close</button></header>
+  <div class="body">
+    <p class="hint" id="kept-hint">Press Keep (or K) on a recording and it stays here, in this browser.</p>
+    <div class="crate" id="kept-list"></div>
+  </div>
+</aside>
+
+<audio id="au" preload="metadata" playsinline></audio>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+const sample = (arr, n) => shuffle(arr.slice()).slice(0, n);
+const clip = (s, n) => { s = String(s == null ? '' : s).replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+const one = v => Array.isArray(v) ? v[0] : v;
+const list = v => Array.isArray(v) ? v.join(', ') : (v || '');
+const store = {
+  get(k, fallback) { try { const v = localStorage.getItem('sound.' + k); return v == null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
+  set(k, v) { try { localStorage.setItem('sound.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable: carry on in memory */ } }
+};
+async function getJSON(url, ms = 16000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+function loadImg(url, ms = 20000) {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.referrerPolicy = 'no-referrer';
+    const t = setTimeout(() => { im.onload = im.onerror = null; im.src = ''; rej(new Error('image timeout')); }, ms);
+    im.onload = () => { clearTimeout(t); res(im); };
+    im.onerror = () => { clearTimeout(t); rej(new Error('image failed')); };
+    im.src = url;
+  });
+}
+// Lengths arrive as seconds ("214.31") or as a clock ("04:52")
+function seconds(v) {
+  if (v == null || v === '') return 0;
+  const s = String(v);
+  if (s.includes(':')) return s.split(':').reduce((n, part) => n * 60 + (+part || 0), 0);
+  return +s || 0;
+}
+const clock = t => { t = Math.max(0, Math.round(t || 0)); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+const nameCase = s => String(s || '').replace(/(^|[\s\-(])([a-zà-ÿ])/g, (m, a, b) => a + b.toUpperCase());
+
+/* ================= what is free to sample ================= */
+// US sound recordings enter the public domain 100 years after publication; a recording's date can
+// run a year ahead of its release, so early records are only drawn when dated a year inside that line.
+const PD_PUBLISHED_BEFORE = new Date().getFullYear() - 100;
+const PD_YEAR = PD_PUBLISHED_BEFORE - 2;
+const RIGHTS = {
+  r: y => 'Dated ' + y + '. US public domain: sound recordings published before ' + PD_PUBLISHED_BEFORE + '.',
+  f: () => 'Marked public domain by the Prelinger Archives. Music inside a film can carry its own rights.',
+  c: () => 'Recorded in 2012 and released to the public domain by Musopen. The composition is long out of copyright.'
+};
+
+/* ================= the word filter ================= */
+let word = String(store.get('word', '') || '');
+const cleanWord = w => String(w || '').replace(/[^\p{L}\p{N}\s'\-]/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+
+/* ================= Internet Archive ================= */
+const IA = 'https://archive.org';
+const iaFile = (id, name) => IA + '/download/' + encodeURIComponent(id) + '/' + String(name).split('/').map(encodeURIComponent).join('/');
+const IA_SORTS = ['identifier asc', 'identifier desc', 'addeddate asc', 'addeddate desc', 'downloads desc', ''];
+const iaFound = {};
+async function iaSearch(q, page, sort) {
+  const d = await getJSON(IA + '/advancedsearch.php?q=' + encodeURIComponent(q) + '&fl%5B%5D=identifier&rows=50&page=' + page +
+    (sort ? '&sort%5B%5D=' + encodeURIComponent(sort) : '') + '&output=json');
+  return d.response || { numFound: 0, docs: [] };
+}
+async function iaIds(q) {
+  const sort = pick(IA_SORTS);
+  const pages = n => Math.max(1, Math.min(Math.ceil(n / 50), 200)); // the search stops paging at 10,000 results
+  let r = await iaSearch(q, rand(1, iaFound[q] != null ? pages(iaFound[q]) : 12), sort);
+  iaFound[q] = r.numFound || 0;
+  if (!(r.docs || []).length && r.numFound > 0) r = await iaSearch(q, rand(1, pages(r.numFound)), sort);
+  return (r.docs || []).map(d => d.identifier).filter(Boolean);
+}
+const iaWord = () => { const w = cleanWord(word); return w ? ' AND (' + w.split(' ').join(' AND ') + ')' : ''; };
+const iaYear = m => +String(m.year || m.date || '').slice(0, 4) || 0;
+
+async function resolve78(it) {
+  const d = await getJSON(IA + '/metadata/' + encodeURIComponent(it.id));
+  const m = d.metadata || {}, files = d.files || [];
+  const year = iaYear(m);
+  if (!year || year > PD_YEAR) throw new Error('not dated inside the public-domain line');
+  let mp3s = files.filter(f => f.format === 'VBR MP3' || (/\.mp3$/i.test(f.name) && /MP3/i.test(f.format || '')));
+  // Great 78 Project items carry extra transfers made with other styli, named "_78_…"; the plain file is the preferred one
+  const plain = mp3s.filter(f => !/^_78_/.test(f.name));
+  if (plain.length) mp3s = plain;
+  if (!mp3s.length) throw new Error('no playable file');
+  const t = pick(mp3s);
+  const base = t.name.replace(/\.mp3$/i, '');
+  const best = files.find(f => f.name === t.original) || files.find(f => f.name === base + '.flac') || files.find(f => f.name === base + '.wav') || t;
+  const photo = files.find(f => f.format === 'Item Image') || files.find(f => f.source === 'original' && /^(JPEG|PNG)$/.test(f.format || '') && !/thumb|spectrogram/i.test(f.name));
+  Object.assign(it, {
+    audio: iaFile(it.id, t.name), file: iaFile(it.id, best.name), fileKind: (best.name.split('.').pop() || '').toUpperCase(),
+    art: photo ? iaFile(it.id, photo.name) : IA + '/services/img/' + encodeURIComponent(it.id),
+    title: clip(t.title || one(m.title) || it.id, 160), artist: clip(list(t.artist || t.creator || m.creator), 120), date: String(year),
+    detail: [clip(list(m.publisher), 60), 'shellac disc'].filter(Boolean).join(' · '), len: seconds(t.length),
+    rights: RIGHTS.r(year), link: IA + '/details/' + encodeURIComponent(it.id)
+  });
+}
+
+let prelingerMarked = true; // ask the search for public-domain-marked films first; fall back to checking each film
+async function resolveFilm(it) {
+  const d = await getJSON(IA + '/metadata/' + encodeURIComponent(it.id));
+  const m = d.metadata || {}, files = d.files || [];
+  if (!/publicdomain/i.test(String(m.licenseurl || ''))) throw new Error('not marked public domain');
+  if (m.whisper_asr_module_skipped || /silent/i.test(String(m.sound || ''))) throw new Error('silent film');
+  const vids = files.filter(f => /\.mp4$/i.test(f.name) && /MPEG4|h\.264/i.test(f.format || '')).sort((a, b) => (+a.size || 1e15) - (+b.size || 1e15));
+  if (!vids.length) throw new Error('no playable file');
+  const v = vids[0];
+  const year = iaYear(m);
+  Object.assign(it, {
+    audio: iaFile(it.id, v.name), file: iaFile(it.id, v.name), fileKind: 'MP4',
+    art: IA + '/services/img/' + encodeURIComponent(it.id),
+    title: clip(one(m.title) || it.id, 160), artist: clip(list(m.creator || m.sponsor) || 'Maker not recorded', 120), date: year ? String(year) : '',
+    detail: 'Film soundtrack' + (v.size ? ' · ' + Math.round(v.size / 1048576) + ' MB to stream' : ''), len: seconds(v.length),
+    rights: RIGHTS.f(), link: IA + '/details/' + encodeURIComponent(it.id)
+  });
+}
+
+let musopen = null;
+async function musopenTracks() {
+  if (!musopen) {
+    const d = await getJSON(IA + '/metadata/MusopenCollectionAsFlac', 40000);
+    const files = d.files || [];
+    musopen = files.filter(f => f.format === 'VBR MP3').map(f => ({ f, best: files.find(x => x.name === f.original) || f }));
+  }
+  return musopen;
+}
+
+/* ================= Library of Congress National Jukebox ================= */
+const locPages = {};
+function locArtist(r) {
+  const primary = String(one(r.contributor_primary) || one(r.contributor) || '').toLowerCase();
+  const full = ((r.item && r.item.contributors) || []).map(c => String(c).split(' -- ')[0]);
+  const name = full.find(n => n.toLowerCase() === primary) || nameCase(primary);
+  const parts = name.split(',').map(x => x.trim()).filter(Boolean);
+  // "McCool, James" becomes "James McCool"; bands and dated entries are left in order
+  return parts.length === 2 && !/\d|band|orchestra|quartet|trio|choir|chorus/i.test(name) ? parts[1] + ' ' + parts[0] : name;
+}
+function locArt(r) {
+  const sized = (r.image_url || []).map(u => { const w = /[#&]w=(\d+)/.exec(u); return { u: String(u).split('#')[0], w: w ? +w[1] : 0 }; }).sort((a, b) => a.w - b.w);
+  if (!sized.length) return '';
+  return (sized.find(x => x.w >= 700) || sized[sized.length - 1]).u;
+}
+
+/* ================= sources ================= */
+const SOURCES = [
+  {
+    id: 'ia78', name: 'Internet Archive 78s', full: 'Internet Archive, 78 rpm collection', kinds: ['r'], weight: 3,
+    note: 'Live. Shellac discs transferred by the Great 78 Project and collectors: dance bands, blues, opera, novelty. MP3 to listen, the original transfer to download.',
+    async refill() {
+      // later years hold far more records, so lean towards them
+      const year = PD_YEAR - Math.floor(Math.pow(Math.random(), 1.7) * (PD_YEAR - 1899));
+      const w = iaWord();
+      const q = 'collection:78rpm AND mediatype:audio AND ' + (w ? 'year:[1890 TO ' + PD_YEAR + ']' + w : 'year:' + year);
+      return sample(await iaIds(q), 5).map(id => ({ kind: 'r', id, key: 'ia:' + id, resolve: resolve78 }));
+    }
+  },
+  {
+    id: 'loc', name: 'National Jukebox', full: 'Library of Congress, National Jukebox', kinds: ['r'], weight: 3,
+    note: 'Live. Victor and Columbia acoustic recordings, 1900 to 1925, with the disc label photographed: bands, tenors, vaudeville, early jazz.',
+    async refill() {
+      const w = cleanWord(word);
+      const fetchPage = sp => getJSON('https://www.loc.gov/collections/national-jukebox/?fo=json&c=25&sp=' + sp + (w ? '&q=' + encodeURIComponent(w) : '') + '&at=results,pagination');
+      let d;
+      try { d = await fetchPage(rand(1, locPages[w] || (w ? 3 : 380))); } catch (e) { d = await fetchPage(1); }
+      const p = d.pagination || {};
+      const items = Math.max(+p.of || 0, +p.total || 0); // one is pages, the other items; with 25 a page the larger is the item count
+      if (items) locPages[w] = Math.max(1, Math.ceil(items / 25));
+      if (!(d.results || []).length && items) d = await fetchPage(rand(1, locPages[w]));
+      return (d.results || []).map(r => {
+        const meta = r.item || {};
+        const year = +String(meta.recording_date || r.date || '').slice(0, 4);
+        const audio = (r.resources || []).map(x => x.media).find(Boolean);
+        if (!audio || !year || year > PD_YEAR) return null;
+        const link = r.url || r.id;
+        return {
+          kind: 'r', key: 'loc:' + link, audio, file: audio, fileKind: 'MP3', art: locArt(r),
+          title: clip(String(r.title || '').replace(/^./, c => c.toUpperCase()), 160), artist: clip(locArtist(r), 120), date: String(year),
+          detail: [meta.summary, [meta.recording_label, meta.recording_catalog_number].filter(Boolean).join(' '), meta.media_size].filter(Boolean).join(' · '),
+          len: 0, rights: RIGHTS.r(year), link
+        };
+      }).filter(Boolean);
+    },
+    keep: 6
+  },
+  {
+    id: 'prelinger', name: 'Prelinger film sound', full: 'Prelinger Archives, via the Internet Archive', kinds: ['f'], weight: 1.5,
+    note: 'Live. Soundtracks of industrial, educational and advertising films from the 1930s to the 1970s: library music, narration, room tone. Streams the film file, so it is heavier on mobile data.',
+    async refill() {
+      const base = 'collection:prelinger AND mediatype:movies AND NOT collection:prelingerhomemovies';
+      let ids = prelingerMarked ? await iaIds(base + ' AND licenseurl:*publicdomain*' + iaWord()) : [];
+      if (!ids.length) {
+        if (prelingerMarked && !iaWord()) prelingerMarked = false;
+        ids = await iaIds(base + iaWord());
+      }
+      return sample(ids, 6).map(id => ({ kind: 'f', id, key: 'ia:' + id, resolve: resolveFilm }));
+    }
+  },
+  {
+    id: 'musopen', name: 'Musopen', full: 'Musopen, via the Internet Archive', kinds: ['c'], weight: 1,
+    note: 'Live. Clean modern recordings of Bach, Beethoven, Brahms and others, made in 2012 and given to the public domain. The compositions are old; the recordings are not.',
+    async refill() {
+      const w = cleanWord(word).toLowerCase();
+      let tracks = await musopenTracks();
+      if (w) tracks = tracks.filter(t => (String(t.f.title || '') + ' ' + t.f.name).toLowerCase().includes(w));
+      return sample(tracks, 4).map(({ f, best }) => {
+        const parts = String(f.title || f.name.split('/').pop().replace(/\.mp3$/i, '')).split(' - ');
+        const composer = parts.length > 1 ? parts.shift() : '';
+        if (parts.length > 1 && /^\d+$/.test(parts[0].trim())) parts.shift();
+        return {
+          kind: 'c', key: 'musopen:' + f.name, audio: iaFile('MusopenCollectionAsFlac', f.name), file: iaFile('MusopenCollectionAsFlac', best.name),
+          fileKind: (best.name.split('.').pop() || '').toUpperCase(), art: '',
+          title: clip(parts.join(' - '), 160), artist: clip(composer, 120), date: '',
+          detail: ['Performed by ' + (list(f.artist) || 'Musopen players'), 'recorded 2012'].join(' · '), len: seconds(f.length),
+          rights: RIGHTS.c(), link: IA + '/details/MusopenCollectionAsFlac'
+        };
+      });
+    }
+  }
+];
+const KIND = { r: 'Early records', f: 'Film sound', c: 'Classical' };
+for (const s of SOURCES) { s.pool = { r: [], f: [], c: [] }; s.shown = 0; s.misses = 0; s.coolUntil = 0; s.down = false; }
+
+/* ================= state ================= */
+let mode = store.get('mode', 'all');
+if (!['all', 'r', 'f', 'c'].includes(mode)) mode = 'all';
+let savedOff = store.get('off', []);
+if (!Array.isArray(savedOff)) savedOff = [];
+const enabled = Object.fromEntries(SOURCES.map(s => [s.id, !savedOff.includes(s.id)]));
+let kept = store.get('kept', []);
+if (!Array.isArray(kept)) kept = [];
+const hist = [];
+let at = -1;
+let gen = 0, busy = false, pending = null, pendingGen = -1;
+const ready = [];
+const seen = new Set();
+const current = () => hist[at];
+let wantPlay = false;   // set once the listener has pressed Play or Summon; browsers refuse sound before that
+let badInARow = 0;
+
+/* ================= drawing a recording ================= */
+function chooseSource(m, skip) {
+  const now = Date.now();
+  let pool = SOURCES.filter(s => enabled[s.id] && !skip.has(s.id) && (m === 'all' || s.kinds.includes(m)));
+  const awake = pool.filter(s => s.coolUntil <= now);
+  if (awake.length) pool = awake;
+  if (!pool.length) return null;
+  let r = Math.random() * pool.reduce((n, s) => n + s.weight, 0);
+  for (const s of pool) { r -= s.weight; if (r <= 0) return s; }
+  return pool[pool.length - 1];
+}
+
+async function draw(m, onTry) {
+  const skip = new Set();
+  for (let n = 0; n < 14; n++) {
+    const s = chooseSource(m, skip);
+    if (!s) break;
+    const kind = m === 'all' ? pick(s.kinds) : m;
+    if (onTry) onTry(s);
+    try {
+      if (!s.pool[kind].length) {
+        let got;
+        try {
+          got = await Promise.race([s.refill(kind), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 45000))]);
+        } catch (e) {
+          s.down = true; s.coolUntil = Date.now() + 60000; skip.add(s.id); renderSources();
+          continue;
+        }
+        got = shuffle((got || []).filter(it => it && it.key && !seen.has(it.key)));
+        const cap = s.keep || 8;
+        for (const it of got) if (s.pool[it.kind].length < cap) s.pool[it.kind].push(it);
+        if (!got.length) { skip.add(s.id); continue; } // answered, but with nothing that fits (often the word filter)
+      }
+      const it = s.pool[kind].pop();
+      if (!it) { skip.add(s.id); continue; }
+      if (it.resolve) { await it.resolve(it); delete it.resolve; }
+      if (!it.audio) throw new Error('no audio');
+      if (it.art) { try { await loadImg(it.art); } catch (e) { it.art = ''; } }
+      it.sid = s.id; it.source = s.name; it.credit = s.full;
+      seen.add(it.key);
+      s.down = false; s.misses = 0; s.coolUntil = 0;
+      return it;
+    } catch (e) {
+      s.misses++;
+      if (s.misses >= 4) { skip.add(s.id); s.misses = 0; }
+    }
+  }
+  throw new Error('nothing answered');
+}
+
+function prefetch() {
+  if (pending || ready.length >= 2) return;
+  const g = pendingGen = gen;
+  pending = draw(mode).then(it => { pending = null; if (g === gen) { ready.push(it); prefetch(); } return it; }, e => { pending = null; throw e; });
+  pending.catch(() => {});
+}
+
+async function summon() {
+  if (busy) return;
+  if (at < hist.length - 1) { at++; paint(true); return; }
+  busy = true;
+  setWait('Summoning…');
+  try {
+    let it = null;
+    while (!it) {
+      const g = gen;
+      it = ready.shift() || null;
+      if (!it && pending && pendingGen === g) {
+        try { it = await pending; const i = ready.indexOf(it); if (i >= 0) ready.splice(i, 1); } catch (e) { it = null; }
+      }
+      if (!it) it = await draw(mode, s => setWait('Asking ' + s.name + '…'));
+      if (g !== gen) it = null; // the filter changed while this one was on its way
+    }
+    hist.push(it); at = hist.length - 1;
+    const s = SOURCES.find(x => x.id === it.sid); if (s) s.shown++;
+    paint(true);
+    clearWait();
+    renderSources();
+  } catch (e) {
+    const w = cleanWord(word);
+    setWait(!Object.values(enabled).some(Boolean) ? 'Every source is switched off. Tick at least one under Sources.'
+      : w ? 'Nothing turned up for “' + w + '”. Try another word, or clear it and summon again.'
+      : 'No collection answered. Check your connection, then press Summon again.', true);
+  } finally {
+    busy = false;
+    prefetch();
+  }
+}
+
+/* ================= player ================= */
+const au = $('au'), seek = $('seek'), playBtn = $('btn-play');
+let dragging = false;
+function applySpeed() {
+  const v = +$('speed').value || 1;
+  // pitch follows speed, like slowing a turntable
+  au.preservesPitch = false; au.mozPreservesPitch = false; au.webkitPreservesPitch = false;
+  au.defaultPlaybackRate = v; au.playbackRate = v;
+}
+function length() { return isFinite(au.duration) && au.duration > 0 ? au.duration : ((current() || {}).len || 0); }
+function tick() {
+  const len = length();
+  $('t-now').textContent = clock(au.currentTime);
+  $('t-len').textContent = len ? clock(len) : '–:––';
+  if (!dragging) seek.value = len ? Math.round(au.currentTime / len * 1000) : 0;
+  playBtn.textContent = au.paused ? 'Play' : 'Pause';
+}
+function play() { wantPlay = true; const p = au.play(); if (p && p.catch) p.catch(() => {}); }
+function toggle() { if (!current()) return; if (au.paused) play(); else { wantPlay = false; au.pause(); } }
+function drop() {
+  if (!current()) return;
+  const go = () => { const len = length(); if (len) au.currentTime = len * (0.05 + Math.random() * 0.85); play(); };
+  if (length()) go(); else { au.addEventListener('loadedmetadata', go, { once: true }); play(); }
+}
+['timeupdate', 'durationchange', 'play', 'pause', 'loadedmetadata', 'seeked'].forEach(ev => au.addEventListener(ev, tick));
+au.addEventListener('playing', () => { badInARow = 0; });
+au.addEventListener('ended', () => { tick(); });
+au.addEventListener('error', () => {
+  const it = current();
+  if (!it || au.getAttribute('src') !== it.audio) return;
+  // the file would not play: leave it out and move on, but not forever
+  hist.splice(at, 1); at = hist.length - 1; badInARow++;
+  if (badInARow > 4) { setWait('Several recordings in a row would not play. Check your connection, then press Summon again.', true); badInARow = 0; return; }
+  summon();
+});
+seek.addEventListener('input', () => { dragging = true; const len = length(); $('t-now').textContent = clock(len * seek.value / 1000); });
+seek.addEventListener('change', () => { const len = length(); if (len) au.currentTime = len * seek.value / 1000; dragging = false; });
+$('speed').addEventListener('change', () => { applySpeed(); store.set('speed', $('speed').value); });
+playBtn.addEventListener('click', toggle);
+$('btn-drop').addEventListener('click', drop);
+
+/* ================= painting ================= */
+const stage = $('stage'), art = $('art'), disc = $('disc'), wait = $('wait');
+function setWait(text, stuck) { $('wait-text').textContent = text; wait.hidden = false; wait.classList.toggle('stuck', !!stuck); stage.classList.toggle('busy', !stuck); }
+function clearWait() { wait.hidden = true; stage.classList.remove('busy'); }
+function setLink(a, href) {
+  if (href) { a.href = href; a.removeAttribute('aria-disabled'); } else { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); }
+}
+function paint(fresh) {
+  const it = current();
+  if (!it) return;
+  if (it.art) { if (art.getAttribute('src') !== it.art) art.src = it.art; art.alt = 'Label of ' + it.title; }
+  art.hidden = !it.art; disc.hidden = !!it.art;
+  $('l-artist').textContent = it.artist || 'Performer not recorded';
+  $('l-title').textContent = it.title || 'Untitled';
+  $('l-date').textContent = it.date ? ', ' + it.date : '';
+  $('l-medium').textContent = [it.detail, it.len ? clock(it.len) : ''].filter(Boolean).join(' · ');
+  $('l-rights').textContent = it.rights || '';
+  $('l-src').textContent = it.credit || '';
+  setLink($('lnk-record'), it.link);
+  setLink($('lnk-file'), it.file || it.audio);
+  $('lnk-file').textContent = (it.fileKind ? it.fileKind + ' file' : 'Audio file') + ' ↗';
+  $('btn-back').disabled = at <= 0;
+  const k = $('btn-keep');
+  k.disabled = false;
+  const isKept = kept.some(x => x.key === it.key);
+  k.setAttribute('aria-pressed', String(isKept));
+  k.textContent = isKept ? 'Kept' : 'Keep';
+  playBtn.disabled = false; seek.disabled = false; $('btn-drop').disabled = false;
+  if (fresh && au.getAttribute('src') !== it.audio) {
+    au.src = it.audio;
+    applySpeed();
+    if (wantPlay) play();
+  }
+  if ('mediaSession' in navigator && window.MediaMetadata) {
+    try { navigator.mediaSession.metadata = new MediaMetadata({ title: it.title, artist: it.artist, album: it.credit, artwork: it.art ? [{ src: it.art }] : [] }); } catch (e) { /* not essential */ }
+  }
+  tick();
+}
+
+/* ================= crate ================= */
+const KEEP_FIELDS = ['key', 'kind', 'sid', 'source', 'credit', 'audio', 'file', 'fileKind', 'art', 'title', 'artist', 'date', 'detail', 'len', 'rights', 'link'];
+function toggleKeep() {
+  const it = current();
+  if (!it) return;
+  const i = kept.findIndex(x => x.key === it.key);
+  if (i >= 0) kept.splice(i, 1); else kept.unshift(Object.fromEntries(KEEP_FIELDS.map(f => [f, it[f]])));
+  store.set('kept', kept);
+  paint(false); renderKept();
+}
+function renderKept() {
+  $('n-kept').textContent = kept.length;
+  $('kept-hint').hidden = kept.length > 0;
+  const box = $('kept-list');
+  box.textContent = '';
+  kept.forEach(k => {
+    const row = document.createElement('div');
+    row.className = 'crate-row';
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'load'; b.title = 'Put back on the turntable';
+    b.textContent = k.title || 'Untitled';
+    const sub = document.createElement('span');
+    sub.textContent = [k.artist, k.date, k.source].filter(Boolean).join(' · ');
+    b.appendChild(sub);
+    b.addEventListener('click', () => { wantPlay = true; hist.push(Object.assign({}, k)); at = hist.length - 1; paint(true); clearWait(); closeDrawers(); });
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'Remove';
+    rm.addEventListener('click', () => { kept = kept.filter(x => x.key !== k.key); store.set('kept', kept); renderKept(); paint(false); });
+    row.append(b, rm);
+    box.appendChild(row);
+  });
+}
+
+/* ================= sources drawer ================= */
+function renderSources() {
+  $('n-sources').textContent = SOURCES.filter(s => enabled[s.id]).length + '/' + SOURCES.length;
+  const box = $('src-list');
+  if (!box.childElementCount) {
+    SOURCES.forEach(s => {
+      const row = document.createElement('label');
+      row.className = 'src-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'src-' + s.id; cb.checked = enabled[s.id];
+      cb.addEventListener('change', () => {
+        enabled[s.id] = cb.checked;
+        store.set('off', SOURCES.filter(x => !enabled[x.id]).map(x => x.id));
+        reset();
+      });
+      const name = document.createElement('b'); name.textContent = s.name;
+      const note = document.createElement('small'); note.textContent = s.note;
+      const stat = document.createElement('span'); stat.className = 'stat'; stat.id = 'stat-' + s.id;
+      row.append(cb, name, note, stat);
+      box.appendChild(row);
+    });
+  }
+  SOURCES.forEach(s => {
+    const state = s.down && s.coolUntil > Date.now() ? 'no answer just now' : s.shown ? s.shown + ' summoned' : 'not drawn yet';
+    $('stat-' + s.id).textContent = s.kinds.map(k => KIND[k]).join(' + ') + ' · ' + state;
+  });
+}
+
+/* Filter, word or source list changed: drop what was queued under the old settings. */
+function reset() {
+  gen++; ready.length = 0;
+  for (const s of SOURCES) { s.misses = 0; s.pool = { r: [], f: [], c: [] }; }
+  renderSources();
+  if (!busy && wait.classList.contains('stuck')) summon(); else prefetch();
+}
+
+/* ================= wiring ================= */
+function setMode(m) {
+  mode = m; store.set('mode', m);
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === m)));
+}
+function fresh() { wantPlay = true; at = hist.length - 1; summon(); }
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.mode === mode) return;
+  setMode(b.dataset.mode);
+  gen++; ready.length = 0;
+  fresh();
+}));
+const wordBox = $('word');
+wordBox.value = word;
+function setWord(v, go) {
+  const w = cleanWord(v);
+  if (w !== cleanWord(word)) { word = w; store.set('word', w); reset(); }
+  if (go) fresh();
+}
+wordBox.addEventListener('change', () => setWord(wordBox.value, false));
+wordBox.addEventListener('search', () => setWord(wordBox.value, false));
+wordBox.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); setWord(wordBox.value, true); wordBox.blur(); } });
+
+const drawers = { sources: $('drawer-sources'), kept: $('drawer-kept') };
+function closeDrawers() { Object.values(drawers).forEach(d => d.hidden = true); $('btn-sources').setAttribute('aria-expanded', 'false'); $('btn-kept').setAttribute('aria-expanded', 'false'); }
+function toggleDrawer(name) {
+  const open = drawers[name].hidden;
+  closeDrawers();
+  if (open) { drawers[name].hidden = false; $('btn-' + name).setAttribute('aria-expanded', 'true'); if (name === 'sources') renderSources(); }
+}
+$('btn-sources').addEventListener('click', () => toggleDrawer('sources'));
+$('btn-kept').addEventListener('click', () => toggleDrawer('kept'));
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeDrawers));
+
+$('btn-summon').addEventListener('click', fresh);
+$('btn-back').addEventListener('click', () => { if (at > 0) { at--; paint(true); clearWait(); } });
+$('btn-keep').addEventListener('click', toggleKeep);
+
+// After a mouse or touch press, hand the keyboard back to the player so the space bar keeps meaning play and pause.
+document.addEventListener('click', e => {
+  const el = e.target.closest && e.target.closest('button, a.btn');
+  if (el && e.detail > 0) el.blur();
+});
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (e.key === 'Escape') { closeDrawers(); return; }
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (e.key === ' ') {
+    if (tag === 'button' || tag === 'a') return; // let the focused control have its own space bar
+    e.preventDefault(); toggle();
+  } else if (e.key === 'ArrowRight') { e.preventDefault(); wantPlay = true; summon(); }
+  else if (e.key === 'ArrowLeft') { if (at > 0) { at--; paint(true); clearWait(); } }
+  else if (e.key === 'k' || e.key === 'K') toggleKeep();
+  else if (e.key === 'n' || e.key === 'N') drop();
+});
+
+$('pd-line').textContent = PD_PUBLISHED_BEFORE;
+$('pd-year').textContent = PD_YEAR;
+const savedSpeed = String(store.get('speed', '1'));
+if ([...$('speed').options].some(o => o.value === savedSpeed)) $('speed').value = savedSpeed;
+setMode(mode);
+renderSources();
+renderKept();
+tick();
+summon();
+})();
+</script>
+</body>
+</html>
