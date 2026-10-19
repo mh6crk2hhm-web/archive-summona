@@ -374,7 +374,7 @@ function fromFileName(u) {
   if (by) { f = by[1]; artist = by[2]; }
   const words = f.replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim();
   const letters = (words.match(/[a-z]/gi) || []).length;
-  if (letters < 6 || /^(article|img|image|dsc|p\d|photo)\b/i.test(words) || /[0-9a-f]{8,}/i.test(words.replace(/ /g, ''))) return { title: '', artist };
+  if (letters < 6 || /^(article|img|image|dsc|p\d|photo slug|photo)\b/i.test(words) || /[0-9a-f]{8,}/i.test(words.replace(/ /g, ''))) return { title: '', artist };
   return { title: titleCase(words), artist };
 }
 function wayback(kind, label) {

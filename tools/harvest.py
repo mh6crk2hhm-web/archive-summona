@@ -2,55 +2,55 @@
 """Randomized sweeps of the Wayback Machine's capture index, run on GitHub's servers.
 
 Browsers can't query the index from a web page, so this job samples it here and writes
-small JSON chunks beside the page, which Flash Summoner reads a
+small JSON chunks beside the page (data/wb-<kind>-NN.json), which Flash Summoner reads a
 chunk at a time. Images are then shown straight from web.archive.org.
 
-Each group lists URL prefixes. For each prefix the index is split into blocks; the job
-picks blocks at random, keeps captured images that pass the filters, sorts each by what
-its file name says (s stock, p paparazzi, e red carpet, x early web), mixes the results
-with what earlier runs found, and rewrites data/wb-<kind>-NN.json.
+Broad queries over the index are slow, so every query here aims at a narrow random spot:
+a dated upload folder plus a random first letter ("www.justjared.com/wp-content/uploads/
+2009/07/k"), or a random two-letter start of a file name that describes the picture
+("media.gettyimages.com/photos/je"). Narrow prefix queries return in seconds. Each kept
+image is sorted by what its file name says: s stock, p paparazzi, e red carpet, x early web.
 """
-import json, os, random, re, sys, time, urllib.parse, urllib.request
+import json, os, random, re, string, sys, time, urllib.parse, urllib.request
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 CDX = 'https://web.archive.org/cdx/search/cdx'
 UA = {'User-Agent': 'Flash Summoner harvest (github.com/mh6crk2hhm-web/archive-summona)'}
 OUT = os.path.join(os.path.dirname(__file__), '..', 'data')
-DEADLINE = time.time() + 40 * 60
-CHUNK, CAP = 800, 60000
-log_lines = []
-errors = {}
-hits = {}
+MINUTES = float(os.environ.get('HARVEST_MINUTES', '90'))
+DEADLINE = time.time() + MINUTES * 60
+WORKERS = 3
+CHUNK, CAP = 800, 80000
+log_lines, errors, hits, tried = [], {}, {}, {}
 
 def log(*a):
     s = ' '.join(str(x) for x in a)
     print(s, flush=True); log_lines.append(s)
 
-def cdx(params, tries=4):
+def cdx(params, tries=2):
     url = CDX + '?' + urllib.parse.urlencode(params, doseq=True)
     for i in range(tries):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
                 return r.read().decode('utf-8', 'replace')
         except Exception as e:
             msg = (type(e).__name__ + ' ' + str(e))[:90]
             errors[msg] = errors.get(msg, 0) + 1
-            log('  retry', i + 1, msg)
-            time.sleep(15 * (i + 1))
+            time.sleep(8 * (i + 1))
     return None
 
 AT_LEAST_40KB = r'^([4-9][0-9]{4}|[0-9]{6,})$'
 AT_LEAST_25KB = r'^([2-9][0-9]{4}|[0-9]{6,})$'
-AT_LEAST_15KB = r'^(1[5-9][0-9]{3}|[2-9][0-9]{4}|[0-9]{6,})$'
-IMG = 'mimetype:image/(jpeg|png|gif)'
-JUNK = re.compile(r'(logo|banner|avatar|icon|button|sprite|header|footer|spacer|pixel|badge|_t\.|-150x150|/ads?/|/static/|/assets/)', re.I)
+AT_LEAST_12KB = r'^(1[2-9][0-9]{3}|[2-9][0-9]{4}|[0-9]{6,})$'
+JUNK = re.compile(r'(logo|banner|avatar|icon|button|sprite|header|footer|spacer|pixel|badge|_t\.|-\d{2,3}x\d{2,3}\.|/ads?/|/static/|/assets/|thumb)', re.I)
 
 # What a file name says about the shot. Sightings are paparazzi; events are red carpet.
+STRONG_EVENT = re.compile(r'(premiere|red-carpet|awards|gala|photocall|arrivals)', re.I)
 CANDID = re.compile(r'(sighting|spotted|out-and-about|out_and_about|seen-|leaves|leaving|leave-|arrives-at-lax|at-lax|airport|shopping|grocery|'
                     r'gas-station|coffee|lunch|dinner-at|filming|on-set|on-location|walks|walking|jogging|gym|beach|vacation|holiday|errand|'
                     r'paparazzi|candid|steps-out|stepping-out|heads-to|out-in-|in-her-car|in-his-car|parking)', re.I)
-EVENT = re.compile(r'(premiere|arrivals|arrive|red-carpet|awards|gala|party|photocall|festival|fashion-week|runway|show|portrait|'
-                   r'concert|benefit|screening|launch|ceremony|celebration|press-conference|junket|dinner|ball|opening|honors|tribute)', re.I)
-STRONG_EVENT = re.compile(r'(premiere|red-carpet|awards|gala|photocall|arrivals)', re.I)
+EVENT = re.compile(r'(arrive|party|festival|fashion-week|runway|show|portrait|concert|benefit|screening|launch|ceremony|celebration|'
+                   r'press-conference|junket|dinner|ball|opening|honors|tribute)', re.I)
 YEAR = re.compile(r'(19[5-9]\d|20[0-2]\d)')
 
 def slug(orig):
@@ -64,82 +64,83 @@ def editorial(ts, orig):
     if EVENT.search(sl): return 'e'
     return 'e' if YEAR.search(sl) else 's'
 
-def editorial_default_p(ts, orig):
-    k = editorial(ts, orig)
-    return 'p' if k == 's' else k
+def gossip(ts, orig):
+    # a gossip blog's upload folder is mostly paparazzi; events only when the file name says so
+    if JUNK.search(orig): return None
+    sl = slug(orig)
+    if STRONG_EVENT.search(sl) or (EVENT.search(sl) and not CANDID.search(sl)): return 'e'
+    return 'p'
 
 def stock(ts, orig):
     return None if JUNK.search(orig) else 's'
 
-DA_STRONG_EVENT = re.compile(r'(premiere|red-carpet|awards|gala|photocall|arrivals)', re.I)
-YEAR = re.compile(r'/(?:f|i)/((?:19|20)\d\d)/')
+DA_YEAR = re.compile(r'/(?:f|i)/((?:19|20)\d\d)/')
 def deviantart(ts, orig):
     m = DA_YEAR.search(orig)
     return 'x' if m and 2000 <= int(m.group(1)) <= 2013 and int(ts[:4]) <= 2016 else None
 
-DM_STRONG_EVENT = re.compile(r'(premiere|red-carpet|awards|gala|photocall|arrivals)', re.I)
-YEAR = re.compile(r'/i/pix/(20\d\d)/')
-def tabloid(ts, orig):
-    if JUNK.search(orig): return None
-    m = DM_YEAR.search(orig)
-    if m and int(m.group(1)) > 2016: return None
-    k = editorial(ts, orig)
-    return 'e' if k == 'e' else 'p'
+LOWER = string.ascii_lowercase
+# Two-letter starts weighted toward how names and stock captions begin.
+STARTS = ['ja', 'je', 'ju', 'jo', 'ka', 'ke', 'ki', 'ma', 'me', 'mi', 'li', 'la', 'le', 'ra', 're', 'ri', 'ro', 'sa', 'se', 'sh', 'st', 'ta', 'ti',
+          'to', 'ch', 'ca', 'co', 'cl', 'da', 'de', 'di', 'dr', 'el', 'em', 'er', 'ga', 'ge', 'gw', 'ha', 'he', 'hi', 'ho', 'is', 'ad', 'al', 'am',
+          'an', 'ar', 'as', 'au', 'be', 'bi', 'bl', 'br', 'na', 'ni', 'no', 'ol', 'or', 'pa', 'pe', 'ph', 'pr', 'ri', 'ry', 'sc', 'so', 'su', 'vi',
+          'va', 'wi', 'za', 'ze', 'ky', 'kr', 'fr', 'fl', 'gi', 'gr', 'tr', 'ty']
+WORDS = list(LOWER) + ['ab', 'ba', 'bu', 'ci', 'fa', 'fi', 'fo', 'hu', 'mo', 'mu', 'po', 'pi', 'sp', 'wo', 'yo']
 
-GROUPS = [
-    {'name': 'DeviantArt image servers', 'size': AT_LEAST_25KB, 'blocks': 10, 'kind': deviantart,
-     'prefixes': ['fc0%d.deviantart.net/' % n for n in range(1, 10)] + ['fc00.deviantart.net/']},
-    {'name': 'Getty Images and WireImage previews', 'size': AT_LEAST_25KB, 'blocks': 8, 'kind': editorial,
-     'prefixes': ['media.gettyimages.com/photos/', 'media.gettyimages.com/id/', 'cache.gettyimages.com/', 'cache1.asset-cache.net/',
-                  'cache2.asset-cache.net/', 'cache3.asset-cache.net/', 'cache4.asset-cache.net/', 'www.wireimage.com/', 'www.filmmagic.com/',
-                  'www.gettyimages.com/detail/']},
-    {'name': 'Shutterstock and Rex editorial previews', 'size': AT_LEAST_25KB, 'blocks': 8, 'kind': editorial_default_p,
-     'prefixes': ['editorial01.shutterstock.com/', 'editorial02.shutterstock.com/', 'editorial03.shutterstock.com/', 'www.rexfeatures.com/',
-                  'www.rexusa.com/', 'images.rexfeatures.com/', 'www.shutterstock.com/editorial/']},
-    {'name': 'Shutterstock stock previews', 'size': AT_LEAST_15KB, 'blocks': 8, 'kind': stock,
-     'prefixes': ['image.shutterstock.com/display_pic_with_logo/', 'image.shutterstock.com/z/', 'image.shutterstock.com/image-photo/',
-                  'thumb1.shutterstock.com/display_pic_with_logo/', 'thumb7.shutterstock.com/display_pic_with_logo/',
-                  'thumb9.shutterstock.com/display_pic_with_logo/', 'thumb10.shutterstock.com/display_pic_with_logo/',
-                  'image.shutterstock.com/image-vector/']},
-    {'name': 'Tabloids and gossip blogs', 'size': AT_LEAST_40KB, 'blocks': 6, 'kind': tabloid,
-     'prefixes': ['justjared.buzznet.com/wp-content/uploads/', 'www.justjared.com/wp-content/uploads/', 'cdn.justjared.com/wp-content/uploads/',
-                  'cdn01.justjared.com/wp-content/uploads/', 'cdn02.justjared.com/wp-content/uploads/', 'cdn03.justjared.com/wp-content/uploads/',
-                  'cdn04.justjared.com/wp-content/uploads/', 'justjaredjr.buzznet.com/wp-content/uploads/']
-                 + ['i.dailymail.co.uk/i/pix/%d/' % y for y in range(2006, 2017)]
-                 + ['pagesix.com/wp-content/uploads/', 'nypost.com/wp-content/uploads/', 'radaronline.com/wp-content/uploads/',
-                    'www.usmagazine.com/wp-content/', 'img.wennermedia.com/', 'akns-images.eonline.com/', 'img2.timeinc.net/people/i/',
-                    'www.thesun.co.uk/', 'i2-prod.mirror.co.uk/', 'www.okmagazine.com/', 'www.intouchweekly.com/',
-                    'www.x17online.com/', 'x17online.com/', 'perezhilton.com/wp-content/uploads/', 'www.perezhilton.com/',
-                    'll-media.tmz.com/', 'www.thesuperficial.com/', 'www.egotastic.com/', 'www.hollywoodtuna.com/', 'www.dlisted.com/',
-                    'www.celebuzz.com/', 'www.pacificcoastnews.com/', 'www.splashnewsonline.com/', 'www.bauergriffin.com/',
-                    'www.fame-pictures.com/', 'hollywoodlife.com/wp-content/uploads/', 'www.socialitelife.com/', 'www.celebitchy.com/',
-                    'www.gotceleb.com/', 'www.hawtcelebs.com/']},
+def ym(y0, y1):
+    return random.randint(y0, y1), random.randint(1, 12)
+
+WP_BLOGS = [  # host, first year, last year: WordPress keeps uploads in /YYYY/MM/
+    ('justjared.buzznet.com', 2006, 2009), ('www.justjared.com', 2009, 2016), ('cdn.justjared.com', 2012, 2016),
+    ('justjaredjr.buzznet.com', 2007, 2009), ('www.justjaredjr.com', 2009, 2016),
+    ('perezhilton.com', 2010, 2016), ('www.perezhilton.com', 2010, 2016), ('hollywoodlife.com', 2010, 2016),
+    ('radaronline.com', 2010, 2016), ('pagesix.com', 2016, 2018), ('www.x17online.com', 2008, 2014),
+    ('www.celebitchy.com', 2008, 2016), ('www.socialitelife.com', 2008, 2014), ('www.egotastic.com', 2009, 2016),
+    ('www.thesuperficial.com', 2009, 2016), ('www.dlisted.com', 2010, 2016), ('www.celebuzz.com', 2009, 2014),
+    ('www.hawtcelebs.com', 2013, 2016), ('www.gotceleb.com', 2010, 2016), ('www.popsugar.com', 2007, 2012),
+    ('www.hollywoodtuna.com', 2008, 2013), ('www.celebslam.com', 2008, 2012), ('www.idontlikeyouinthatway.com', 2008, 2013),
 ]
-KINDS = ['s', 'p', 'e', 'x']
 
-def sample_prefix(prefix, cfg):
-    base = {'url': prefix, 'matchType': 'prefix', 'pageSize': '1'}
-    raw = cdx(dict(base, showNumPages='true'))
-    try: n = int((raw or '').strip())
-    except ValueError: n = 0
-    if n <= 0:
-        log('  %-52s empty' % prefix); return []
-    picks = random.sample(range(n), min(n, cfg['blocks']))
-    found = []
-    for k in picks:
-        if time.time() > DEADLINE: break
-        text = cdx(dict(base, page=str(k), fl='timestamp,original', filter=['statuscode:200', IMG, 'length:' + cfg['size']]))
-        time.sleep(2)
-        for line in (text or '').splitlines():
-            parts = line.split(' ', 1)
-            if len(parts) != 2: continue
-            ts, orig = parts
-            if len(ts) != 14: continue
-            k = cfg['kind'](ts, orig)
-            if k: found.append([k, ts, orig])
-    log('  %-52s %6d blocks, sampled %2d, kept %5d' % (prefix, n, len(picks), len(found)))
-    if found: hits[prefix] = len(found)
-    return found
+def wp_prefix():
+    host, a, b = random.choice(WP_BLOGS)
+    y, m = ym(a, b)
+    return 'tabloids', host, '%s/wp-content/uploads/%d/%02d/%s' % (host, y, m, random.choice(LOWER))
+
+DA_FS = [(n, 2006, 2007) for n in range(10, 20)] + [(n, 2007, 2008) for n in range(20, 30)] + \
+        [(n, 2008, 2009) for n in range(30, 41)] + [(n, 2009, 2010) for n in range(41, 52)] + [(70, 2010, 2013), (71, 2011, 2013)] * 6
+
+def da_prefix():
+    fs, a, b = random.choice(DA_FS)
+    host = 'fc%02d.deviantart.net' % random.randint(1, 9)
+    return 'deviantart', host, '%s/fs%d/f/%d/%d' % (host, fs, random.randint(a, b), random.randint(0, 3))
+
+def getty_prefix():
+    return 'getty', 'media.gettyimages.com', 'media.gettyimages.com/photos/' + random.choice(STARTS)
+
+def ss_prefix():
+    kind = random.choice(['stock-photo-'] * 4 + ['stock-vector-'])
+    return 'shutterstock', 'image.shutterstock.com', 'image.shutterstock.com/z/' + kind + random.choice(WORDS)
+
+PLANS = [  # generator, how often, size filter, sorter
+    (wp_prefix, 5, AT_LEAST_40KB, gossip),
+    (getty_prefix, 3, AT_LEAST_25KB, editorial),
+    (da_prefix, 3, AT_LEAST_25KB, deviantart),
+    (ss_prefix, 1, AT_LEAST_12KB, stock),
+]
+WEIGHTED = [p for p in PLANS for _ in range(p[1])]
+
+def one_query():
+    gen, _, size, sorter = random.choice(WEIGHTED)
+    group, host, prefix = gen()
+    text = cdx({'url': prefix, 'matchType': 'prefix', 'fl': 'timestamp,original', 'collapse': 'urlkey', 'limit': '400',
+                'filter': ['statuscode:200', 'mimetype:image/(jpeg|png|gif)', 'length:' + size]})
+    out = []
+    for line in (text or '').splitlines():
+        parts = line.split(' ', 1)
+        if len(parts) != 2 or len(parts[0]) != 14: continue
+        k = sorter(parts[0], parts[1])
+        if k: out.append((k, parts[0], parts[1]))
+    return host, out
 
 def key(orig):
     u = orig.split('?')[0].lower()
@@ -167,14 +168,29 @@ def save(kind, entries):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    jobs = [(g, pre) for g in GROUPS for pre in g['prefixes']]
-    random.shuffle(jobs)  # if time runs out, what got sampled is still a fair spread
-    new = {k: [] for k in KINDS}
-    for g, pre in jobs:
-        if time.time() > DEADLINE: log('out of time'); break
-        for k, ts, orig in sample_prefix(pre, g):
-            new[k].append([ts, orig])
-    for k in KINDS:
+    kinds = ['s', 'p', 'e', 'x']
+    new = {k: [] for k in kinds}
+    queries = 0
+    with ThreadPoolExecutor(WORKERS) as pool:
+        running = {pool.submit(one_query) for _ in range(WORKERS)}
+        while running:
+            for f in as_completed(running):
+                running.discard(f)
+                queries += 1
+                try:
+                    host, found = f.result()
+                    tried[host] = tried.get(host, 0) + 1
+                    if found: hits[host] = hits.get(host, 0) + len(found)
+                    for k, ts, orig in found: new[k].append([ts, orig])
+                except Exception as e:
+                    errors[type(e).__name__] = errors.get(type(e).__name__, 0) + 1
+                if time.time() < DEADLINE:
+                    time.sleep(1.5)
+                    running.add(pool.submit(one_query))
+                if queries % 50 == 0:
+                    log('%d queries; kept so far: %s' % (queries, ', '.join('%s %d' % (k, len(new[k])) for k in kinds)))
+                break
+    for k in kinds:
         seen, merged = set(), []
         for e in new[k] + load(k):
             kk = key(e[1])
@@ -184,15 +200,17 @@ def main():
         random.shuffle(merged)
         if merged: save(k, merged)
         log('kind %s: %d new this run, %d in total' % (k, len(new[k]), len(merged)))
+    for host in sorted(tried, key=lambda h: -hits.get(h, 0)):
+        log('  %-36s %4d queries, kept %6d' % (host, tried[host], hits.get(host, 0)))
     with open(os.path.join(OUT, 'harvest-log.txt'), 'w') as f:
         f.write('\n'.join(log_lines) + '\n')
     # Annotations are the one part of a run that can be read back without the Actions log.
-    totals = ', '.join('%s %d' % (k, len(new[k])) for k in KINDS)
-    print('::notice title=kept::' + totals)
+    print('::notice title=kept::%d queries; ' % queries + ', '.join('%s %d' % (k, len(new[k])) for k in kinds))
     top = sorted(hits.items(), key=lambda kv: -kv[1])
-    for i in range(0, min(len(top), 40), 10):
-        print('::notice title=prefixes::' + ' | '.join('%s %d' % kv for kv in top[i:i + 10]))
-    print('::notice title=empty::%d of %d prefixes kept nothing' % (len(jobs) - len(hits), len(jobs)))
+    for i in range(0, min(len(top), 30), 10):
+        print('::notice title=hosts::' + ' | '.join('%s %d' % kv for kv in top[i:i + 10]))
+    dry = [h for h in tried if not hits.get(h)]
+    if dry: print('::notice title=dry::' + ' | '.join('%s %d' % (h, tried[h]) for h in dry[:25]))
     for msg, n in sorted(errors.items(), key=lambda kv: -kv[1])[:5]:
         print('::warning title=errors::%dx %s' % (n, msg))
 
