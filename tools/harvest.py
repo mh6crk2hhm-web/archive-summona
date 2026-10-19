@@ -118,8 +118,8 @@ WP_BLOGS = [  # host, first year, last year: WordPress keeps uploads in /YYYY/MM
     ('www.hollywoodtuna.com', 2008, 2013), ('www.celebslam.com', 2008, 2012), ('www.idontlikeyouinthatway.com', 2008, 2013),
 ]
 
-CANDID_BLOGS = [('www.hawtcelebs.com', 2013, 2022), ('celebmafia.com', 2014, 2022), ('www.celebzz.com', 2016, 2022),
-                 ('hollywoodlife.com', 2010, 2018), ('www.theplace2.ru', 2010, 2016), ('www.celebsfirst.com', 2014, 2020)]
+CANDID_BLOGS = [('www.hawtcelebs.com', 2013, 2022), ('www.hawtcelebs.com', 2013, 2022), ('celebmafia.com', 2014, 2022),
+                 ('celebmafia.com', 2014, 2022), ('hollywoodlife.com', 2010, 2018), ('www.celebzz.com', 2016, 2022)]
 
 def candid_blog_prefix():
     host, a, b = random.choice(CANDID_BLOGS)
@@ -129,7 +129,7 @@ def candid_blog_prefix():
 # Zimbio carried the paparazzi agencies' feeds, one folder per agency, captions in the file name.
 ZIMBIO_AGENCIES = ['bg', 'fp', 'pc', 'mp', 'x1', 'gi', 'wi', 'fm', 'sp', 'ak', 'ps', 'ss']
 def zimbio_prefix():
-    host = 'www%d.pictures.%s.com' % (random.randint(1, 4), random.choice(['zimbio'] * 4 + ['stylebistro', 'livingly']))
+    host = 'www%d.pictures.zimbio.com' % random.randint(1, 4)
     return 'zimbio', host, '%s/%s/%s' % (host, random.choice(ZIMBIO_AGENCIES), random.choice(STARTS + list(string.ascii_uppercase)))
 
 SIGHTING_CITIES = ['new-york-city', 'los-angeles', 'london', 'paris', 'milan', 'cannes', 'berlin', 'venice', 'toronto', 'sydney',
@@ -160,9 +160,8 @@ def ss_prefix():
     return 'shutterstock', 'image.shutterstock.com', 'image.shutterstock.com/z/' + kind + random.choice(WORDS)
 
 PLANS = [  # generator, how often, size filter, sorter (weighted toward candids: the thinnest pool)
-    (zimbio_prefix, 6, AT_LEAST_25KB, gossip),
-    (getty_sightings_prefix, 4, AT_LEAST_25KB, editorial),
-    (candid_blog_prefix, 4, AT_LEAST_25KB, gossip),
+    (zimbio_prefix, 8, AT_LEAST_25KB, gossip),
+    (candid_blog_prefix, 5, AT_LEAST_25KB, gossip),
     (wp_prefix, 2, AT_LEAST_40KB, gossip),
     (getty_prefix, 1, AT_LEAST_25KB, editorial),
     (da_prefix, 2, AT_LEAST_25KB, deviantart),
