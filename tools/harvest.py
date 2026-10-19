@@ -168,19 +168,25 @@ def ss_prefix():
 #   www.style.com/slideshows/2010/fashionshows/2011PF/CHANEL/RUNWAY/09m.jpg            (about 2006-2012)
 #   media.style.com/image/fashion-shows/spring-2015-ready-to-wear/chanel/collection/... (about 2013-2016)
 #   www.firstview.com/Australia_shows/Aspring2000_2001/AKIRA_ISOGAWA/00034.L.JPG         (2000s)
+def surt_len(prefix):
+    # length of the prefix in the index's own sort key: host reversed, "www." dropped, lowercased
+    host, _, path = prefix.partition('/')
+    parts = host.split(':')[0].lower().split('.')
+    if parts[0] == 'www': parts = parts[1:]
+    return len(','.join(reversed(parts)) + ')/' + path)
+
+# One image per distinct folder instead of the first 250 files of one folder: in effect a list of shows, one look each.
 def style_prefix():
     r = random.random()
-    if r < 0.45:
-        y = random.randint(2006, 2012)
-        code = random.choice(['F%dRTW' % y, 'S%dRTW' % (y + 1), 'S%dRTW' % y, 'F%dCTR' % y, 'S%dCTR' % y, 'F%dMEN' % y,
-                              'S%dMEN' % (y + 1), '%dPF' % (y + 1), '%dRST' % (y + 1), '%dRST' % y])
-        return 'style.com', 'www.style.com', 'www.style.com/slideshows/%d/fashionshows/%s/%s' % (y, code, random.choice(string.ascii_uppercase))
-    if r < 0.8:
-        y = random.randint(2013, 2016)
-        season = random.choice(['spring-%d-ready-to-wear', 'fall-%d-ready-to-wear', 'spring-%d-ready-to-wear', 'fall-%d-ready-to-wear',
-                                'resort-%d', 'pre-fall-%d', 'spring-%d-couture', 'fall-%d-couture', 'spring-%d-menswear', 'fall-%d-menswear']) % y
-        return 'style.com', 'media.style.com', 'media.style.com/image/fashion-shows/%s/%s' % (season, random.choice(LOWER))
-    return 'firstview', 'www.firstview.com', 'www.firstview.com/' + random.choice(string.ascii_uppercase) + random.choice(LOWER)
+    if r < 0.4:
+        pre = 'www.style.com/slideshows/%d/fashionshows/%s' % (random.randint(2010, 2012), random.choice(['', '', 'F', 'S', '2']))
+        base = len('www.style.com/slideshows/2010/fashionshows/')
+        return 'style.com', 'www.style.com', pre, 'urlkey:%d' % (surt_len('www.style.com/slideshows/2010/fashionshows/') + 18)
+    if r < 0.75:
+        pre = 'media.style.com/image/fashion-shows/' + random.choice(LOWER)
+        return 'style.com', 'media.style.com', pre, 'urlkey:%d' % (surt_len('media.style.com/image/fashion-shows/') + 42)
+    pre = 'www.firstview.com/' + random.choice(string.ascii_uppercase)
+    return 'firstview', 'www.firstview.com', pre, 'urlkey:%d' % (surt_len('www.firstview.com/') + 44)
 
 def runway(ts, orig):
     if re.search(r'(thumb|\d+t\.jpg|_t\.|/t/|sprite|logo|/blogs?/|/stylefile/|contributors|products|defaultimages)', orig, re.I): return None
@@ -202,15 +208,17 @@ PLANS = [  # generator, how often, size filter, sorter (weighted toward candids:
     (getty_prefix, 1, AT_LEAST_25KB, editorial),
     (da_prefix, 2, AT_LEAST_25KB, deviantart),
     (ss_prefix, 1, AT_LEAST_12KB, stock),
-    (style_prefix, 3, AT_LEAST_25KB, runway),
+    (style_prefix, 5, AT_LEAST_25KB, runway),
     (getty_fashion_prefix, 3, AT_LEAST_25KB, editorial),
 ]
 WEIGHTED = [p for p in PLANS for _ in range(p[1])]
 
 def one_query():
     gen, _, size, sorter = random.choice(WEIGHTED)
-    group, host, prefix = gen()
-    text = cdx({'url': prefix, 'matchType': 'prefix', 'fl': 'timestamp,original', 'collapse': 'urlkey', 'limit': '250',
+    got = gen()
+    group, host, prefix = got[:3]
+    collapse = got[3] if len(got) > 3 else 'urlkey'
+    text = cdx({'url': prefix, 'matchType': 'prefix', 'fl': 'timestamp,original', 'collapse': collapse, 'limit': '250',
                 'filter': ['statuscode:200', 'mimetype:image/(jpeg|png|gif)', 'length:' + size]})
     out = []
     for line in (text or '').splitlines():
