@@ -157,10 +157,12 @@ button{cursor:pointer}
 @media (prefers-reduced-motion:reduce){.flash.pop{animation:none}}
 #work.px{image-rendering:pixelated}
 @media (max-width:640px){
-  .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .seg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr))}
+  .seg button{font-size:12px;padding:7px 2px}
   .seg button+button{border-left:1px solid var(--ink)}
-  .seg button:nth-child(3n+1){border-left:0}
-  .seg button:nth-child(n+4){border-top:1px solid var(--ink)}
+  .seg button:nth-child(4n+1){border-left:0}
+  .seg button:nth-child(n+5){border-top:1px solid var(--ink)}
+  .seg button:last-child{grid-column:span 2}
 }
 
 /* ---------- Shutterstock token ---------- */
@@ -183,6 +185,7 @@ button{cursor:pointer}
     <button type="button" role="radio" data-mode="s" aria-checked="false">Stock</button>
     <button type="button" role="radio" data-mode="p" aria-checked="false">Paparazzi</button>
     <button type="button" role="radio" data-mode="e" aria-checked="false">Red carpet</button>
+    <button type="button" role="radio" data-mode="f" aria-checked="false">Fashion</button>
     <button type="button" role="radio" data-mode="w" aria-checked="false">Vintage press</button>
     <button type="button" role="radio" data-mode="x" aria-checked="false">Early web</button>
   </div>
@@ -359,7 +362,7 @@ const HOSTS = [
   [/perezhilton/, 'Perez Hilton'], [/tmz/, 'TMZ'], [/thesuperficial/, 'The Superficial'], [/egotastic/, 'Egotastic'], [/hollywoodtuna/, 'Hollywood Tuna'],
   [/dlisted/, 'Dlisted'], [/celebuzz/, 'Celebuzz'], [/pacificcoastnews/, 'Pacific Coast News'], [/splashnews/, 'Splash News'],
   [/bauergriffin/, 'Bauer-Griffin'], [/fame-pictures/, 'FameFlynet'], [/hollywoodlife/, 'Hollywood Life'], [/socialitelife/, 'Socialite Life'],
-  [/celebitchy/, 'Celebitchy'], [/celebmafia/, 'CelebMafia'], [/celebzz/, 'Celebzz'], [/theplace2/, 'ThePlace'], [/celebsfirst/, 'Celebs First'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
+  [/style\.com/, 'Style.com'], [/celebitchy/, 'Celebitchy'], [/celebmafia/, 'CelebMafia'], [/celebzz/, 'Celebzz'], [/theplace2/, 'ThePlace'], [/celebsfirst/, 'Celebs First'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
 ];
 const ZIMBIO = { bg: 'Bauer-Griffin', fp: 'FameFlynet', pc: 'Pacific Coast News', mp: 'Mavrix', x1: 'X17', gi: 'Getty Images', wi: 'WireImage', fm: 'FilmMagic', sp: 'Splash News', ak: 'AKM Images', ps: 'PacificCoastNews' };
 const hostLabel = u => {
@@ -393,9 +396,13 @@ function wayback(kind, label) {
     if (!n) return [];
     const rows = await getJSON('../data/wb-' + kind + '-' + String(rand(0, n - 1)).padStart(2, '0') + '.json?b=' + encodeURIComponent(WB[kind].built || ''), 25000);
     return sample(rows, 12).map(([ts, orig]) => {
-      const { title, artist } = fromFileName(orig);
+      const show = /\/([FS])(\d{4})(RTW|CTR|MEN|PF|RST)-([A-Z0-9_]+)/i.exec(orig);
+      const { title, artist } = show
+        ? { title: titleCase(show[4].replace(/_/g, ' ').toLowerCase()) + ', ' + (show[1].toUpperCase() === 'F' ? 'Fall ' : 'Spring ') + show[2] + ' ' +
+              ({ RTW: 'Ready-to-Wear', CTR: 'Couture', MEN: 'Menswear', PF: 'Pre-Fall', RST: 'Resort' })[show[3].toUpperCase()], artist: '' }
+        : fromFileName(orig);
       const host = hostLabel(orig);
-      const year = kind === 'x' ? ((/\/(?:f|i)\/((?:19|20)\d\d)\//.exec(orig) || [])[1] || ts.slice(0, 4)) : ts.slice(0, 4);
+      const year = show ? show[2] : kind === 'x' ? ((/\/(?:f|i)\/((?:19|20)\d\d)\//.exec(orig) || [])[1] || ts.slice(0, 4)) : ts.slice(0, 4);
       const mark = /Getty|WireImage|FilmMagic|Shutterstock|Rex/.test(host) && !/Zimbio/.test(host) ? ' · watermarked preview' : '';
       return {
         kind, src: ['https://web.archive.org/web/' + ts + 'im_/' + orig], min: 240,
@@ -475,6 +482,7 @@ const SS_PAP_Q = [
   'seen leaving', 'at LAX', 'shopping in Beverly Hills', 'Malibu beach', 'filming on location', 'out to lunch', 'jogging', 'farmers market'
 ];
 const SS_CARPET_Q = ['red carpet', 'premiere', 'arrivals', 'after party', 'gala', 'photocall', 'fashion week front row', 'awards'];
+const SS_FASHION_Q = ['runway', 'catwalk', 'fashion show', 'street style', 'fashion week front row', 'backstage fashion week', 'couture show', 'menswear show'];
 const SS_OLD_Q = ['out and about', 'spotted', 'paparazzi', 'leaving restaurant', 'airport', 'nightclub', 'shopping', 'on holiday', 'premiere', 'arrivals'];
 const pad = n => String(n).padStart(2, '0');
 
@@ -642,6 +650,36 @@ const SOURCES = [
     refill: commons(['"David Shankbone" filew:>1500', '"Eva Rinaldi" filew:>1500'], 'e', 'Press photograph')
   },
 
+  /* ---- fashion ---- */
+  {
+    id: 'wbf', name: 'Runway and street style, archived', full: 'Style.com and Getty, via the Wayback Machine', kinds: ['f'], weight: 4,
+    note: 'Live from a harvested index. Style.com’s runway galleries 2000–2015, one random look from one random show, captioned by designer and season; Getty runway, backstage and street-style previews; fashion-show pictures from the tabloid folders.',
+    keep: 12,
+    refill: wayback('f', 'Fashion')
+  },
+  {
+    id: 'ssfashion', name: 'Shutterstock fashion', full: 'Shutterstock Editorial (watermarked preview)', kinds: ['f'], weight: 2, needsToken: true,
+    note: 'Live, with your token. Runways, backstage, front rows and street style from Shutterstock’s editorial wires, 2000 to now.',
+    keep: 20,
+    async refill() {
+      const d = await ssGet('editorial/images/search?country=USA&sort=newest&per_page=20&query=' + encodeURIComponent(pick(SS_FASHION_Q)) + ssMonth(2000, new Date().getFullYear() - 1));
+      return (d.data || []).map(x => ssEditorial(x, 'f')).filter(Boolean);
+    }
+  },
+  {
+    id: 'runway', name: 'Runways on Commons', full: 'Fashion shows, via Wikimedia Commons', kinds: ['f'], weight: 1.5,
+    note: 'Live. Runway and fashion-week photographs released under Creative Commons: New York, Paris, Milan, Berlin, São Paulo and smaller weeks.',
+    refill: commons(['"fashion week" runway filew:>1500', '"fashion week" catwalk filew:>1500', '"fashion show" runway model filew:>1500',
+      '"Mercedes-Benz Fashion Week" filew:>1500', '"São Paulo Fashion Week" filew:>1500', '"Fashion Week Berlin" filew:>1500', '"Paris Fashion Week" filew:>1500',
+      '"New York Fashion Week" filew:>1500', '"street style" fashion filew:>1500'], 'f', 'Fashion photograph')
+  },
+  {
+    id: 'vfashion', name: 'Vintage fashion', full: 'Anefo and fashion plates, via Wikimedia Commons', kinds: ['f'], weight: 1.2,
+    note: 'Live. Dutch press photographs of fashion shows and mannequins, 1945–1989, from the Anefo archive; and hand-coloured fashion plates from the 19th and early 20th centuries.',
+    refill: commons(['Anefo modeshow', 'Anefo mannequin', 'Anefo mode collectie', 'Anefo modeshow Dior', 'intitle:"fashion plate" filew:>1200',
+      '"Journal des Dames et des Modes" filew:>1200', '"La Mode illustrée" filew:>1200'], 'f', 'Fashion picture')
+  },
+
   /* ---- vintage press ---- */
   {
     id: 'ssarch', name: 'Shutterstock Editorial archive', full: 'Shutterstock Editorial archive (watermarked preview)', kinds: ['w'], weight: 1.5, needsToken: true,
@@ -719,13 +757,13 @@ const SOURCES = [
       'x', 'DeviantArt post', { mimes: /^image\/(jpeg|png|gif)$/, before: 2014, min: 400, limit: 40 })
   }
 ];
-const KIND = { s: 'Stock', p: 'Paparazzi', e: 'Red carpet', w: 'Vintage press', x: 'Early web' };
-const emptyPool = () => ({ s: [], p: [], e: [], w: [], x: [] });
+const KIND = { s: 'Stock', p: 'Paparazzi', e: 'Red carpet', f: 'Fashion', w: 'Vintage press', x: 'Early web' };
+const emptyPool = () => ({ s: [], p: [], e: [], f: [], w: [], x: [] });
 for (const s of SOURCES) { s.pool = emptyPool(); s.shown = 0; s.misses = 0; s.imgFails = 0; s.drawn = 0; s.coolUntil = 0; s.down = false; }
 
 /* ================= state ================= */
 let mode = store.get('mode', 'all');
-if (!['all', 's', 'p', 'e', 'w', 'x'].includes(mode)) mode = 'all';
+if (!['all', 's', 'p', 'e', 'f', 'w', 'x'].includes(mode)) mode = 'all';
 let savedOff = store.get('off', []);
 if (!Array.isArray(savedOff)) savedOff = [];
 const enabled = Object.fromEntries(SOURCES.map(s => [s.id, !savedOff.includes(s.id)]));
@@ -835,7 +873,7 @@ async function summon() {
     hist.push(it); at = hist.length - 1;
     const s = SOURCES.find(x => x.id === it.sid); if (s) s.shown++;
     paint();
-    if ('pew'.includes(it.kind)) strobe();
+    if ('pefw'.includes(it.kind)) strobe();
     clearWait();
     renderSources();
   } catch (e) {

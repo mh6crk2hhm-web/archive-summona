@@ -45,6 +45,9 @@ AT_LEAST_12KB = r'^(1[2-9][0-9]{3}|[2-9][0-9]{4}|[0-9]{6,})$'
 JUNK = re.compile(r'(logo|banner|avatar|icon|button|sprite|header|footer|spacer|pixel|badge|_t\.|-\d{2,3}x\d{2,3}\.|/ads?/|/static/|/assets/|thumb|s=170x170|[?&]w=[1-3]\d\d\b)', re.I)
 
 # What a file name says about the shot. Sightings are paparazzi; events are red carpet.
+# Fashion outranks everything else: a runway look, a street-style guest or a front row is a fashion picture.
+FASHION = re.compile(r'(runway|catwalk|walks-the-runway|walk-the-runway|guest-wears|guest-wearing|guest-is-wearing|street-style|streetstyle|'
+                     r'lookbook|look-book|fashion-show|fashionshow|fashion-week|front-row|modeshow|mode-show|show-during)', re.I)
 STRONG_EVENT = re.compile(r'(premiere|red-carpet|awards|gala|photocall|arrivals)', re.I)
 CANDID = re.compile(r'(sighting|spotted|out-and-about|out_and_about|seen-|leaves|leaving|leave-|arrives-at-lax|at-lax|airport|shopping|grocery|'
                     r'gas-station|coffee|lunch|dinner-at|filming|on-set|on-location|walks|walking|jogging|gym|beach|vacation|holiday|errand|'
@@ -68,6 +71,7 @@ def editorial(ts, orig):
     if JUNK.search(orig): return None
     sl = slug(orig)
     if SPORT.search(sl): return None
+    if FASHION.search(sl): return 'f'
     if STRONG_EVENT.search(sl): return 'e'
     if GETTY_CANDID.search(sl): return 'p'
     if EVENT.search(sl) or re.search(r'(attend|host|pose|perform)', sl, re.I): return 'e'
@@ -82,6 +86,7 @@ def gossip(ts, orig):
     if JUNK.search(orig): return None
     sl = slug(orig)
     if FURNITURE.search(sl) or SPORT.search(sl): return None
+    if FASHION.search(sl): return 'f'
     if STRONG_EVENT.search(sl) or (EVENT.search(sl) and not CANDID.search(sl)): return 'e'
     return 'p'
 
@@ -159,6 +164,27 @@ def ss_prefix():
     kind = random.choice(['stock-photo-'] * 4 + ['stock-vector-'])
     return 'shutterstock', 'image.shutterstock.com', 'image.shutterstock.com/z/' + kind + random.choice(WORDS)
 
+# Style.com, Conde Nast's runway site 2000-2015: one folder per show, named season + designer (F2009RTW-CHANEL).
+def style_prefix():
+    y = random.randint(2000, 2015)
+    season = random.choice('FS') + str(y) + random.choice(['RTW', 'RTW', 'RTW', 'CTR', 'MEN'])
+    letter = random.choice(string.ascii_uppercase)
+    if random.random() < 0.5:
+        return 'style.com', 'media.style.com', 'media.style.com/image/fashionshows/%s-%s' % (season, letter)
+    return 'style.com', 'www.style.com', 'www.style.com/slideshows/%d/fashionshows/%s-%s' % (y, season, letter)
+
+def runway(ts, orig):
+    if re.search(r'(thumb|\d+t\.jpg|_t\.|/t/|sprite|logo)', orig, re.I): return None
+    return 'f'
+
+GETTY_FASHION = ['a-model-walks-the-runway-', 'model-walks-the-runway-', 'models-walk-the-runway-', 'a-model-walks-the-runway-at-the-',
+                 'a-model-walks-the-runway-during-the-', 'models-walk-the-runway-finale-', 'a-guest-wears-', 'a-guest-is-wearing-',
+                 'guest-wears-', 'a-guest-wearing-', 'street-style-', 'a-model-poses-backstage-']
+def getty_fashion_prefix():
+    start = random.choice(GETTY_FASHION)
+    if start.endswith('-') and random.random() < 0.6: start += random.choice(LOWER)
+    return 'getty', 'media.gettyimages.com (fashion)', 'media.gettyimages.com/photos/' + start
+
 PLANS = [  # generator, how often, size filter, sorter (weighted toward candids: the thinnest pool)
     (zimbio_prefix, 8, AT_LEAST_25KB, gossip),
     (candid_blog_prefix, 5, AT_LEAST_25KB, gossip),
@@ -166,6 +192,8 @@ PLANS = [  # generator, how often, size filter, sorter (weighted toward candids:
     (getty_prefix, 1, AT_LEAST_25KB, editorial),
     (da_prefix, 2, AT_LEAST_25KB, deviantart),
     (ss_prefix, 1, AT_LEAST_12KB, stock),
+    (style_prefix, 3, AT_LEAST_25KB, runway),
+    (getty_fashion_prefix, 3, AT_LEAST_25KB, editorial),
 ]
 WEIGHTED = [p for p in PLANS for _ in range(p[1])]
 
@@ -187,6 +215,7 @@ def sorter_for(orig):
     if 'gettyimages' in h: return editorial
     if 'shutterstock' in h: return stock
     if 'deviantart' in h: return deviantart
+    if 'style.com' in h: return runway
     return gossip
 
 def key(orig):
@@ -215,7 +244,7 @@ def save(kind, entries):
 
 def main():
     os.makedirs(OUT, exist_ok=True)
-    kinds = ['s', 'p', 'e', 'x']
+    kinds = ['s', 'p', 'e', 'x', 'f']
     new = {k: [] for k in kinds}
     queries = 0
     with ThreadPoolExecutor(WORKERS) as pool:
