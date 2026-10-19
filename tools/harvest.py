@@ -31,7 +31,7 @@ def cdx(params, tries=2):
     url = CDX + '?' + urllib.parse.urlencode(params, doseq=True)
     for i in range(tries):
         try:
-            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=60) as r:
+            with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=45) as r:
                 return r.read().decode('utf-8', 'replace')
         except Exception as e:
             msg = (type(e).__name__ + ' ' + str(e))[:90]
@@ -54,7 +54,8 @@ EVENT = re.compile(r'(arrive|party|festival|fashion-week|runway|show|portrait|co
 YEAR = re.compile(r'(19[5-9]\d|20[0-2]\d)')
 
 def slug(orig):
-    return urllib.parse.unquote(orig.split('?')[0].rstrip('/').rsplit('/', 1)[-1])
+    # Zimbio writes captions with plus signs: Jennifer+Aniston+Out+About+LA
+    return urllib.parse.unquote(orig.split('?')[0].rstrip('/').rsplit('/', 1)[-1]).replace('+', '-').lower()
 
 # Getty's own captions are formulaic: a sighting says so. "beach" or "seen from" alone is a landscape.
 GETTY_CANDID = re.compile(r'(sighting|is-seen|are-seen|seen-on-|seen-in-|seen-out|spotted|out-and-about|leaves-|leaving-|departs-|'
@@ -117,6 +118,27 @@ WP_BLOGS = [  # host, first year, last year: WordPress keeps uploads in /YYYY/MM
     ('www.hollywoodtuna.com', 2008, 2013), ('www.celebslam.com', 2008, 2012), ('www.idontlikeyouinthatway.com', 2008, 2013),
 ]
 
+CANDID_BLOGS = [('www.hawtcelebs.com', 2013, 2022), ('celebmafia.com', 2014, 2022), ('www.celebzz.com', 2016, 2022),
+                 ('hollywoodlife.com', 2010, 2018), ('www.theplace2.ru', 2010, 2016), ('www.celebsfirst.com', 2014, 2020)]
+
+def candid_blog_prefix():
+    host, a, b = random.choice(CANDID_BLOGS)
+    y, m = ym(a, b)
+    return 'tabloids', host, '%s/wp-content/uploads/%d/%02d/%s' % (host, y, m, random.choice(LOWER))
+
+# Zimbio carried the paparazzi agencies' feeds, one folder per agency, captions in the file name.
+ZIMBIO_AGENCIES = ['bg', 'fp', 'pc', 'mp', 'x1', 'gi', 'wi', 'fm', 'sp', 'ak', 'ps', 'ss']
+def zimbio_prefix():
+    host = 'www%d.pictures.%s.com' % (random.randint(1, 4), random.choice(['zimbio'] * 4 + ['stylebistro', 'livingly']))
+    return 'zimbio', host, '%s/%s/%s' % (host, random.choice(ZIMBIO_AGENCIES), random.choice(STARTS + list(string.ascii_uppercase)))
+
+SIGHTING_CITIES = ['new-york-city', 'los-angeles', 'london', 'paris', 'milan', 'cannes', 'berlin', 'venice', 'toronto', 'sydney',
+                   'miami', 'beverly-hills', 'west-hollywood', 'malibu', 'saint-tropez', 'rome', 'madrid', 'tokyo', 'hong-kong', 'st-barths']
+MONTHS = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+def getty_sightings_prefix():
+    tail = '%s-%s' % (random.choice(SIGHTING_CITIES), random.choice(MONTHS)) if random.random() < 0.7 else random.choice(SIGHTING_CITIES)
+    return 'getty', 'media.gettyimages.com (sightings)', 'media.gettyimages.com/photos/celebrity-sightings-in-' + tail
+
 def wp_prefix():
     host, a, b = random.choice(WP_BLOGS)
     y, m = ym(a, b)
@@ -137,10 +159,13 @@ def ss_prefix():
     kind = random.choice(['stock-photo-'] * 4 + ['stock-vector-'])
     return 'shutterstock', 'image.shutterstock.com', 'image.shutterstock.com/z/' + kind + random.choice(WORDS)
 
-PLANS = [  # generator, how often, size filter, sorter
-    (wp_prefix, 5, AT_LEAST_40KB, gossip),
-    (getty_prefix, 3, AT_LEAST_25KB, editorial),
-    (da_prefix, 3, AT_LEAST_25KB, deviantart),
+PLANS = [  # generator, how often, size filter, sorter (weighted toward candids: the thinnest pool)
+    (zimbio_prefix, 6, AT_LEAST_25KB, gossip),
+    (getty_sightings_prefix, 4, AT_LEAST_25KB, editorial),
+    (candid_blog_prefix, 4, AT_LEAST_25KB, gossip),
+    (wp_prefix, 2, AT_LEAST_40KB, gossip),
+    (getty_prefix, 1, AT_LEAST_25KB, editorial),
+    (da_prefix, 2, AT_LEAST_25KB, deviantart),
     (ss_prefix, 1, AT_LEAST_12KB, stock),
 ]
 WEIGHTED = [p for p in PLANS for _ in range(p[1])]
@@ -148,7 +173,7 @@ WEIGHTED = [p for p in PLANS for _ in range(p[1])]
 def one_query():
     gen, _, size, sorter = random.choice(WEIGHTED)
     group, host, prefix = gen()
-    text = cdx({'url': prefix, 'matchType': 'prefix', 'fl': 'timestamp,original', 'collapse': 'urlkey', 'limit': '400',
+    text = cdx({'url': prefix, 'matchType': 'prefix', 'fl': 'timestamp,original', 'collapse': 'urlkey', 'limit': '250',
                 'filter': ['statuscode:200', 'mimetype:image/(jpeg|png|gif)', 'length:' + size]})
     out = []
     for line in (text or '').splitlines():

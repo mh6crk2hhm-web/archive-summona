@@ -359,22 +359,28 @@ const HOSTS = [
   [/perezhilton/, 'Perez Hilton'], [/tmz/, 'TMZ'], [/thesuperficial/, 'The Superficial'], [/egotastic/, 'Egotastic'], [/hollywoodtuna/, 'Hollywood Tuna'],
   [/dlisted/, 'Dlisted'], [/celebuzz/, 'Celebuzz'], [/pacificcoastnews/, 'Pacific Coast News'], [/splashnews/, 'Splash News'],
   [/bauergriffin/, 'Bauer-Griffin'], [/fame-pictures/, 'FameFlynet'], [/hollywoodlife/, 'Hollywood Life'], [/socialitelife/, 'Socialite Life'],
-  [/celebitchy/, 'Celebitchy'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
+  [/celebitchy/, 'Celebitchy'], [/celebmafia/, 'CelebMafia'], [/celebzz/, 'Celebzz'], [/theplace2/, 'ThePlace'], [/celebsfirst/, 'Celebs First'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
 ];
-const hostLabel = u => { const h = (/^https?:\/\/([^/:]+)/i.exec(u) || [])[1] || ''; const hit = HOSTS.find(([re]) => re.test(h)); return hit ? hit[1] : h.replace(/^www\./, ''); };
+const ZIMBIO = { bg: 'Bauer-Griffin', fp: 'FameFlynet', pc: 'Pacific Coast News', mp: 'Mavrix', x1: 'X17', gi: 'Getty Images', wi: 'WireImage', fm: 'FilmMagic', sp: 'Splash News', ak: 'AKM Images', ps: 'PacificCoastNews' };
+const hostLabel = u => {
+  const h = (/^https?:\/\/([^/:]+)/i.exec(u) || [])[1] || '';
+  const z = /pictures\.(zimbio|stylebistro|livingly)\.com$/i.test(h) && /\.com\/([a-z0-9]{2})\//i.exec(u);
+  if (z) return (ZIMBIO[z[1].toLowerCase()] || 'Agency') + ' via Zimbio';
+  const hit = HOSTS.find(([re]) => re.test(h)); return hit ? hit[1] : h.replace(/^www\./, '');
+};
 const titleCase = s => s === s.toLowerCase() ? s.replace(/\b([a-z])/g, c => c.toUpperCase()) : s;
 // File names are often the only caption: "jennifer-aniston-sighting-in-los-angeles-picture-id1452", "dark_forest_by_someone-d2abc".
 function fromFileName(u) {
   let f = decodeURIComponent(String(u).split('?')[0].replace(/\/+$/, '').split('/').pop() || '');
   try { f = decodeURIComponent(f); } catch (e) { /* already plain */ }
-  f = f.replace(/\.(jpe?g|png|gif)$/i, '').replace(/-picture-id\d+$/i, '').replace(/^(stock-(photo|vector)-)/i, '')
+  f = f.replace(/\.(jpe?g|png|gif)$/i, '').replace(/\+[A-Za-z0-9_-]{8,14}$/, '').replace(/-picture-id\d+$/i, '').replace(/^(stock-(photo|vector)-)/i, '')
     .replace(/[-_](\d{2,4}x\d{2,4}|260nw|\d{5,})$/i, '').replace(/[-_]d[0-9a-z]{4,7}$/i, '').replace(/[-_]\d{1,3}$/, '');
   let artist = '';
   const by = /^(.*)_by_([\w-]+)$/i.exec(f);
   if (by) { f = by[1]; artist = by[2]; }
-  const words = f.replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const words = f.replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim().replace(/ \d{1,2} \d{1,2} \d{2,4}$/, '').trim();
   const letters = (words.match(/[a-z]/gi) || []).length;
-  if (letters < 6 || /^(article|img|image|dsc|p\d|photo slug|photo)\b/i.test(words) || /[0-9a-f]{8,}/i.test(words.replace(/ /g, ''))) return { title: '', artist };
+  if (letters < 6 || /^(article|img|image|dsc|p\d|photo slug|photo)\b/i.test(words) || /(?=[0-9a-f]*[a-f])(?=[0-9a-f]*\d)[0-9a-f]{10,}/i.test(words.replace(/ /g, ''))) return { title: '', artist };
   return { title: titleCase(words), artist };
 }
 function wayback(kind, label) {
@@ -390,7 +396,7 @@ function wayback(kind, label) {
       const { title, artist } = fromFileName(orig);
       const host = hostLabel(orig);
       const year = kind === 'x' ? ((/\/(?:f|i)\/((?:19|20)\d\d)\//.exec(orig) || [])[1] || ts.slice(0, 4)) : ts.slice(0, 4);
-      const mark = /Getty|WireImage|FilmMagic|Shutterstock|Rex/.test(host) ? ' · watermarked preview' : '';
+      const mark = /Getty|WireImage|FilmMagic|Shutterstock|Rex/.test(host) && !/Zimbio/.test(host) ? ' · watermarked preview' : '';
       return {
         kind, src: ['https://web.archive.org/web/' + ts + 'im_/' + orig], min: 240,
         title, artist, date: year, subject: title ? subjectOf(title) : '',
