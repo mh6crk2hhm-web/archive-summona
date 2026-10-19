@@ -392,7 +392,11 @@ const HOUSES = {"CDIOR": "Christian Dior", "DIOR": "Dior", "MMARGIEL": "Maison M
 const designerCase = s => HOUSES[String(s).toUpperCase().replace(/[^A-Z0-9]/g, '')] || titleCase(String(s).replace(/[_-]+/g, ' ').toLowerCase());
 function runwayCaption(u) {
   let m = /fashionshows\/([FS])?(\d{4})(RTW|CTR|MEN|PF|RST)?\/([A-Z0-9_]+)\//i.exec(u);           // Style.com 2006-2012
-  if (m) return { title: designerCase(m[4]) + ', ' + [m[1] ? (m[1].toUpperCase() === 'F' ? 'Fall' : 'Spring') : '', m[2], SEASON_TYPES[(m[3] || '').toUpperCase()] || ''].filter(Boolean).join(' '), year: m[2] };
+  if (m) {
+    const type = SEASON_TYPES[(m[3] || '').toUpperCase()] || '';
+    const season = m[1] ? [m[1].toUpperCase() === 'F' ? 'Fall' : 'Spring', m[2], type] : [type, m[2]];
+    return { title: designerCase(m[4]) + ', ' + season.filter(Boolean).join(' '), year: m[2] };
+  }
   m = /fashionshows\/([FS])(\d{4})(RTW|CTR|MEN|PF|RST)-([A-Z0-9_]+)/i.exec(u);
   if (m) return { title: designerCase(m[4]) + ', ' + (m[1].toUpperCase() === 'F' ? 'Fall ' : 'Spring ') + m[2] + ' ' + SEASON_TYPES[m[3].toUpperCase()], year: m[2] };
   m = /fashion-shows\/([a-z0-9-]+)\/(?:[a-z-]+\/)?([a-z0-9-]+)\/collection\//i.exec(u);          // Style.com 2013-2016
