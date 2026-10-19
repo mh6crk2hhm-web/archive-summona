@@ -15,9 +15,11 @@ import json, os, random, re, sys, time, urllib.parse, urllib.request
 CDX = 'https://web.archive.org/cdx/search/cdx'
 UA = {'User-Agent': 'Flash Summoner harvest (github.com/mh6crk2hhm-web/archive-summona)'}
 OUT = os.path.join(os.path.dirname(__file__), '..', 'data')
-DEADLINE = time.time() + 100 * 60
+DEADLINE = time.time() + 40 * 60
 CHUNK, CAP = 800, 60000
 log_lines = []
+errors = {}
+hits = {}
 
 def log(*a):
     s = ' '.join(str(x) for x in a)
@@ -30,7 +32,9 @@ def cdx(params, tries=4):
             with urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=120) as r:
                 return r.read().decode('utf-8', 'replace')
         except Exception as e:
-            log('  retry', i + 1, type(e).__name__, str(e)[:120])
+            msg = (type(e).__name__ + ' ' + str(e))[:90]
+            errors[msg] = errors.get(msg, 0) + 1
+            log('  retry', i + 1, msg)
             time.sleep(15 * (i + 1))
     return None
 
@@ -134,6 +138,7 @@ def sample_prefix(prefix, cfg):
             k = cfg['kind'](ts, orig)
             if k: found.append([k, ts, orig])
     log('  %-52s %6d blocks, sampled %2d, kept %5d' % (prefix, n, len(picks), len(found)))
+    if found: hits[prefix] = len(found)
     return found
 
 def key(orig):
@@ -181,6 +186,15 @@ def main():
         log('kind %s: %d new this run, %d in total' % (k, len(new[k]), len(merged)))
     with open(os.path.join(OUT, 'harvest-log.txt'), 'w') as f:
         f.write('\n'.join(log_lines) + '\n')
+    # Annotations are the one part of a run that can be read back without the Actions log.
+    totals = ', '.join('%s %d' % (k, len(new[k])) for k in KINDS)
+    print('::notice title=kept::' + totals)
+    top = sorted(hits.items(), key=lambda kv: -kv[1])
+    for i in range(0, min(len(top), 40), 10):
+        print('::notice title=prefixes::' + ' | '.join('%s %d' % kv for kv in top[i:i + 10]))
+    print('::notice title=empty::%d of %d prefixes kept nothing' % (len(jobs) - len(hits), len(jobs)))
+    for msg, n in sorted(errors.items(), key=lambda kv: -kv[1])[:5]:
+        print('::warning title=errors::%dx %s' % (n, msg))
 
 if __name__ == '__main__':
     main()
