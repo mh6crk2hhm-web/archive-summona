@@ -1,34 +1,29 @@
-50 queries; kept so far: s 2555, p 553, e 771, x 2
-100 queries; kept so far: s 4040, p 772, e 1273, x 895
-kind s: 4431 new this run, 9294 in total
-kind p: 772 new this run, 496 in total
-kind e: 1273 new this run, 1067 in total
-kind x: 895 new this run, 895 in total
-  media.gettyimages.com                  26 queries, kept   4383
-  image.shutterstock.com                 12 queries, kept   1340
-  hollywoodlife.com                       4 queries, kept    422
-  fc05.deviantart.net                     5 queries, kept    402
-  fc07.deviantart.net                     5 queries, kept    399
-  www.hawtcelebs.com                      4 queries, kept    311
-  fc09.deviantart.net                     3 queries, kept     94
-  radaronline.com                         2 queries, kept     13
-  www.dlisted.com                         2 queries, kept      6
-  perezhilton.com                         1 queries, kept      1
-  www.egotastic.com                       3 queries, kept      0
-  fc04.deviantart.net                     2 queries, kept      0
-  pagesix.com                             4 queries, kept      0
-  fc01.deviantart.net                     4 queries, kept      0
-  cdn.justjared.com                       6 queries, kept      0
-  justjared.buzznet.com                   1 queries, kept      0
-  fc02.deviantart.net                     3 queries, kept      0
-  www.socialitelife.com                   3 queries, kept      0
-  www.popsugar.com                        2 queries, kept      0
-  www.gotceleb.com                        4 queries, kept      0
-  www.justjared.com                       2 queries, kept      0
-  www.justjaredjr.com                     3 queries, kept      0
-  www.idontlikeyouinthatway.com           3 queries, kept      0
-  fc08.deviantart.net                     1 queries, kept      0
-  www.celebslam.com                       1 queries, kept      0
-  www.perezhilton.com                     1 queries, kept      0
-  www.x17online.com                       1 queries, kept      0
+50 queries; kept so far: s 2567, p 14, e 451, x 1049
+kind s: 2567 new this run, 11067 in total
+kind p: 14 new this run, 286 in total
+kind e: 451 new this run, 922 in total
+kind x: 1049 new this run, 1862 in total
+  image.shutterstock.com                  4 queries, kept   1548
+  media.gettyimages.com                   8 queries, kept   1482
+  fc06.deviantart.net                     3 queries, kept    710
+  fc07.deviantart.net                     3 queries, kept    336
+  fc02.deviantart.net                     3 queries, kept      2
+  www.perezhilton.com                     3 queries, kept      2
+  fc09.deviantart.net                     1 queries, kept      1
+  www.idontlikeyouinthatway.com           2 queries, kept      0
+  www.dlisted.com                         2 queries, kept      0
+  perezhilton.com                         3 queries, kept      0
+  www.popsugar.com                        1 queries, kept      0
   www.thesuperficial.com                  1 queries, kept      0
+  www.x17online.com                       3 queries, kept      0
+  www.celebuzz.com                        1 queries, kept      0
+  www.gotceleb.com                        1 queries, kept      0
+  pagesix.com                             2 queries, kept      0
+  radaronline.com                         1 queries, kept      0
+  fc03.deviantart.net                     3 queries, kept      0
+  www.celebslam.com                       1 queries, kept      0
+  www.hollywoodtuna.com                   1 queries, kept      0
+  fc04.deviantart.net                     1 queries, kept      0
+  fc01.deviantart.net                     1 queries, kept      0
+  cdn.justjared.com                       1 queries, kept      0
+  justjared.buzznet.com                   1 queries, kept      0
