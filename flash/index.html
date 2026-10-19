@@ -1,0 +1,706 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Flash Summoner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Libre+Franklin:ital,wght@0,400;0,600;0,800;1,400&display=swap">
+<style>
+/* Layout: one screen, shared with Archive Summoner. A grey-card wall holds the picture; the strip below it is the wall label; one yellow button summons. */
+:root{
+  --wall:#8e8d8a;      /* 18% grey card: the neutral prints are judged against */
+  --paper:#f1f0ec;     /* label stock */
+  --ink:#161615;
+  --muted:#5d5c58;
+  --line:#cfcec8;
+  --accent:#f5b800;    /* film-box yellow */
+  --accent-ink:#161615;
+  --shadow:rgba(0,0,0,.34);
+  --sans:"Libre Franklin","Franklin Gothic Medium","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme:dark){
+  :root{
+    --wall:#272726; --paper:#151514; --ink:#eceae4; --muted:#a09e97; --line:#35342f;
+    --shadow:rgba(0,0,0,.6);
+    color-scheme:dark;
+  }
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  display:grid;grid-template-rows:auto minmax(0,1fr) auto;
+  background:var(--wall);color:var(--ink);
+  font:400 15px/1.45 var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+[hidden]{display:none!important}
+button,a{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- top bar ---------- */
+.bar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 20px;
+  padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));
+  background:var(--paper);border-bottom:1px solid var(--line);
+}
+.mark{display:flex;align-items:center;gap:10px;margin:0;font:800 13px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase;white-space:nowrap}
+.mark .steps{display:flex}
+.mark .steps i{width:6px;height:14px}
+.steps i:nth-child(1){background:#f6f5f1}.steps i:nth-child(2){background:#c4c3bf}.steps i:nth-child(3){background:#8e8d8a}.steps i:nth-child(4){background:#55544f}.steps i:nth-child(5){background:#161615}
+.mark .steps{outline:1px solid var(--line)}
+.seg{display:flex;margin-inline:auto;border:1px solid var(--ink);border-radius:2px}
+.seg button{border:0;background:transparent;padding:6px 14px;font-size:13px;line-height:1.2}
+.seg button+button{border-left:1px solid var(--ink)}
+.seg button[aria-checked="true"]{background:var(--ink);color:var(--paper)}
+.tools{display:flex;gap:8px}
+.btn{
+  display:inline-flex;align-items:center;gap:8px;white-space:nowrap;text-decoration:none;
+  border:1px solid var(--line);border-radius:2px;background:transparent;
+  padding:7px 12px;font-size:13px;line-height:1.2;
+}
+.btn:hover{border-color:var(--ink)}
+.btn[disabled],.btn[aria-disabled="true"]{opacity:.4;pointer-events:none}
+.btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.count{font:500 11px/1 var(--mono);color:var(--muted)}
+.btn[aria-pressed="true"] .count{color:inherit}
+
+/* ---------- wall ---------- */
+.stage{position:relative;display:grid;grid-template:minmax(0,1fr)/minmax(0,1fr);padding:clamp(14px,3.2vw,44px);min-height:0}
+#work{width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 10px 26px var(--shadow));transition:opacity .25s}
+.stage.busy #work{opacity:.45}
+.wait{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  display:grid;gap:12px;justify-items:center;text-align:center;
+  width:max-content;max-width:calc(100% - 32px);
+  padding:16px 20px;background:var(--paper);border:1px solid var(--line);border-radius:2px;
+  box-shadow:0 10px 30px var(--shadow);
+}
+.wait p{margin:0;font:400 12px/1.4 var(--mono);text-wrap:balance}
+.wedge{display:flex;outline:1px solid var(--line)}
+.wedge i{width:16px;height:22px;animation:step 1.32s linear infinite}
+.wedge i:nth-child(1){background:#f6f5f1}.wedge i:nth-child(2){background:#e0dfdb;animation-delay:.12s}
+.wedge i:nth-child(3){background:#c9c8c4;animation-delay:.24s}.wedge i:nth-child(4){background:#b1b0ac;animation-delay:.36s}
+.wedge i:nth-child(5){background:#9a9995;animation-delay:.48s}.wedge i:nth-child(6){background:#83827e;animation-delay:.6s}
+.wedge i:nth-child(7){background:#6c6b67;animation-delay:.72s}.wedge i:nth-child(8){background:#555450;animation-delay:.84s}
+.wedge i:nth-child(9){background:#3f3e3b;animation-delay:.96s}.wedge i:nth-child(10){background:#2a2928;animation-delay:1.08s}
+.wedge i:nth-child(11){background:#161615;animation-delay:1.2s}
+@keyframes step{0%,100%{transform:none}8%{transform:translateY(-5px)}16%{transform:none}}
+.wait.stuck .wedge i{animation:none}
+@media (prefers-reduced-motion:reduce){.wedge i{animation:none}#work{transition:none}}
+
+/* ---------- wall label ---------- */
+.plate{
+  display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:14px 28px;
+  padding:14px max(16px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left));
+  background:var(--paper);border-top:1px solid var(--line);
+}
+.label{flex:1 1 320px;min-width:0;max-width:68ch;display:grid;gap:2px}
+.label p{margin:0;overflow-wrap:anywhere}
+.l-artist{font-weight:600}
+.l-title{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.l-title cite{font-style:italic}
+.l-medium{color:var(--muted);font-size:13px}
+.l-src{margin-top:6px!important;font:400 11.5px/1.4 var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--muted);font-variant-numeric:tabular-nums}
+.acts{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.primary{
+  background:var(--accent);color:var(--accent-ink);border:1px solid var(--accent-ink);border-radius:2px;
+  padding:10px 18px;font-weight:800;font-size:14px;letter-spacing:.06em;text-transform:uppercase;
+  display:inline-flex;align-items:center;gap:10px;
+}
+.primary:hover{filter:brightness(1.06)}
+.primary:active{transform:translateY(1px)}
+.primary kbd{font:500 10.5px/1 var(--mono);letter-spacing:0;text-transform:none;border:1px solid currentColor;border-radius:2px;padding:3px 5px;opacity:.75}
+
+/* ---------- drawers ---------- */
+.drawer{
+  position:fixed;z-index:5;top:0;right:0;bottom:0;width:min(400px,100%);
+  display:grid;grid-template-rows:auto minmax(0,1fr);
+  background:var(--paper);border-left:1px solid var(--line);box-shadow:-18px 0 40px var(--shadow);
+  padding-top:env(safe-area-inset-top,0px);
+}
+.drawer header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.drawer h2{margin:0;font:800 13px/1 var(--sans);letter-spacing:.09em;text-transform:uppercase}
+.drawer .body{overflow:auto;padding:6px 16px calc(20px + env(safe-area-inset-bottom,0px))}
+.drawer .hint{margin:10px 0 4px;color:var(--muted);font-size:13px}
+.src-row{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.src-row input{margin:3px 0 0;width:16px;height:16px;accent-color:var(--ink)}
+.src-row b{font-weight:600}
+.src-row small{grid-column:2;color:var(--muted);font-size:12.5px}
+.src-row .stat{grid-column:2;font:400 11px/1.4 var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
+.kept{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;padding-top:12px}
+.kept figure{margin:0;display:grid;gap:6px;align-content:start}
+.kept .thumb{border:0;padding:0;background:var(--wall);aspect-ratio:1;display:block;width:100%}
+.kept .thumb img{width:100%;height:100%;object-fit:contain;display:block}
+.kept figcaption{font-size:12.5px;line-height:1.35;overflow-wrap:anywhere}
+.kept figcaption span{color:var(--muted)}
+.kept .rm{justify-self:start;border:0;background:none;padding:0;font:400 11px/1 var(--mono);text-transform:uppercase;letter-spacing:.03em;color:var(--muted);text-decoration:underline}
+
+@media (max-width:640px){
+  .seg{order:3;flex:1 1 100%;margin:0}
+  .seg button{flex:1 1 auto;padding:6px 4px;font-size:12.5px}
+  .tools{margin-left:auto}
+  .acts{flex:1 1 100%}
+  .acts .btn{flex:1 1 auto;justify-content:center}
+  .primary{flex:1 1 100%;justify-content:center;order:-1}
+  .primary kbd{display:none}
+}
+
+/* ---------- flash: a soft strobe when a press picture lands ---------- */
+.flash{position:fixed;inset:0;z-index:4;pointer-events:none;background:#fff;opacity:0}
+.flash.pop{animation:pop .42s ease-out}
+@keyframes pop{0%{opacity:.5}100%{opacity:0}}
+@media (prefers-reduced-motion:reduce){.flash.pop{animation:none}}
+</style>
+</head>
+<body>
+
+<header class="bar">
+  <h1 class="mark"><span class="steps" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>Flash Summoner</h1>
+  <div class="seg" role="radiogroup" aria-label="What to summon">
+    <button type="button" role="radio" data-mode="all" aria-checked="true">Everything</button>
+    <button type="button" role="radio" data-mode="s" aria-checked="false">Stock</button>
+    <button type="button" role="radio" data-mode="p" aria-checked="false">Paparazzi</button>
+    <button type="button" role="radio" data-mode="w" aria-checked="false">Vintage press</button>
+  </div>
+  <div class="tools">
+    <button type="button" class="btn" id="btn-sources" aria-expanded="false">Sources <span class="count" id="n-sources"></span></button>
+    <button type="button" class="btn" id="btn-kept" aria-expanded="false">Kept <span class="count" id="n-kept">0</span></button>
+  </div>
+</header>
+
+<main class="stage busy" id="stage">
+  <img id="work" alt="" referrerpolicy="no-referrer" hidden>
+  <div class="wait" id="wait" role="status" aria-live="polite">
+    <div class="wedge" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+    <p id="wait-text">Summoning…</p>
+  </div>
+</main>
+<div class="flash" id="flash" aria-hidden="true"></div>
+
+<footer class="plate">
+  <article class="label" id="label" aria-live="polite">
+    <p class="l-artist" id="l-artist">Nothing on the wall yet</p>
+    <p class="l-title"><cite id="l-title"></cite><span id="l-date"></span></p>
+    <p class="l-medium" id="l-medium">The first picture is on its way.</p>
+    <p class="l-src" id="l-src"></p>
+  </article>
+  <nav class="acts" aria-label="Picture actions">
+    <button type="button" class="btn" id="btn-back" disabled>← Back</button>
+    <button type="button" class="btn" id="btn-keep" aria-pressed="false" disabled>Keep</button>
+    <a class="btn" id="lnk-record" target="_blank" rel="noopener" aria-disabled="true">Record ↗</a>
+    <a class="btn" id="lnk-full" target="_blank" rel="noopener" aria-disabled="true">Full size ↗</a>
+    <button type="button" class="primary" id="btn-summon">Summon <kbd>space</kbd></button>
+  </nav>
+</footer>
+
+<aside class="drawer" id="drawer-sources" aria-label="Sources" hidden>
+  <header><h2>Sources</h2><button type="button" class="btn" data-close>Close</button></header>
+  <div class="body">
+    <p class="hint">Untick a source to leave it out. A source that doesn't answer is skipped for a minute and tried again. Everything here is free to use under the licence shown on the picture; check the record before you publish.</p>
+    <div id="src-list"></div>
+  </div>
+</aside>
+
+<aside class="drawer" id="drawer-kept" aria-label="Kept pictures" hidden>
+  <header><h2>Kept</h2><button type="button" class="btn" data-close>Close</button></header>
+  <div class="body">
+    <p class="hint" id="kept-hint">Press Keep (or K) on a picture and it stays here, in this browser.</p>
+    <div class="kept" id="kept-list"></div>
+  </div>
+</aside>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
+const plain = html => { const d = new DOMParser().parseFromString(String(html || ''), 'text/html'); return (d.body.textContent || '').replace(/\s+/g, ' ').trim(); };
+const store = {
+  get(k, fallback) { try { const v = localStorage.getItem('flash.' + k); return v == null ? fallback : JSON.parse(v); } catch (e) { return fallback; } },
+  set(k, v) { try { localStorage.setItem('flash.' + k, JSON.stringify(v)); } catch (e) { /* storage unavailable: carry on in memory */ } }
+};
+
+async function getJSON(url, ms = 14000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
+const MIN_LONG_EDGE = 600; // anything smaller is a placeholder or a thumbnail, not worth showing
+function loadImg(url, ms = 30000, min = MIN_LONG_EDGE) {
+  return new Promise((res, rej) => {
+    const im = new Image();
+    im.referrerPolicy = 'no-referrer';
+    im.decoding = 'async';
+    const t = setTimeout(() => { im.onload = im.onerror = null; im.src = ''; rej(new Error('image timeout')); }, ms);
+    im.onload = () => { clearTimeout(t); Math.max(im.naturalWidth, im.naturalHeight) >= min ? res(im) : rej(new Error('image too small')); };
+    im.onerror = () => { clearTimeout(t); rej(new Error('image failed')); };
+    im.src = url;
+  });
+}
+
+/* Show a quick preview where a source offers one, then swap in the large file when it lands. */
+async function resolveImage(item) {
+  const took = (url, im) => { item.shown = url; item.w = im.naturalWidth; item.h = im.naturalHeight; };
+  const best = async (ms) => {
+    for (const u of item.src) { try { took(u, await loadImg(u, ms)); return true; } catch (e) { /* next size */ } }
+    return false;
+  };
+  if (item.preview) {
+    try {
+      took(item.preview, await loadImg(item.preview, 20000, 300));
+      best(90000).then(ok => { if (ok && current() === item) paint(); });
+      return;
+    } catch (e) { /* fall through to the full files */ }
+  }
+  if (!(await best(30000))) throw new Error('no image');
+}
+
+/* ================= tidying labels ================= */
+// Commons file names carry their provenance in the title; the plate has its own line for that.
+function tidyTitle(s) {
+  return String(s || '')
+    .replace(/^Bundesarchiv\s+Bild\s+[\w-]+(,\s*)?/i, '')
+    .replace(/\s*\((Unsplash|Pexels|Pixabay|rawpixel|StockSnap)[^)]*\)/ig, '')
+    .replace(/\s+NYWTS(\s*\d+)?(\s*\(cropped\))?$/i, '')
+    .replace(/\s+by\s+Gage\s+Skidmore(\s*\d+)?$/i, '')
+    .replace(/\s*-\s*(Anefo|Nationaal Archief)\b.*$/i, '')
+    .replace(/[_]+/g, ' ').trim();
+}
+const tidyDate = s => { s = String(s || '').trim(); const iso = /^(\d{4}-\d{2}-\d{2})[ T]\d/.exec(s); return clip(iso ? iso[1] : s, 32); };
+const tidyArtist = s => clip(String(s || '').replace(/^(Unknown author|Unknown photographer|Onbekend)$/i, '').replace(/\s*from\s+[\w ,.-]+$/i, ''), 80);
+
+/* ================= Wikimedia Commons: most of the press and stock pictures live here ================= */
+function commons(searches, kind, label) {
+  return async () => {
+    const q = pick(searches);
+    const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search' +
+      '&gsrsearch=' + encodeURIComponent(q) + '&gsrsort=random&gsrnamespace=6&gsrlimit=8' +
+      '&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata&iiurlwidth=1920' +
+      '&iiextmetadatafilter=ObjectName%7CArtist%7CDateTimeOriginal%7CCredit%7CLicenseShortName';
+    const d = await getJSON(url);
+    const pages = Object.values((d.query && d.query.pages) || {});
+    return pages.map(p => {
+      const ii = p.imageinfo && p.imageinfo[0];
+      if (!ii || !ii.thumburl || ii.mime !== 'image/jpeg') return null; // photographs only: PNGs here are mostly logos and screenshots
+      const m = ii.extmetadata || {};
+      const val = k => (m[k] ? plain(m[k].value) : '');
+      const fileTitle = String(p.title || '').replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' ');
+      return {
+        kind, src: [ii.thumburl, ii.thumburl.replace(/\/\d+px-/, '/1280px-')], full: ii.url,
+        title: clip(tidyTitle(val('ObjectName') || fileTitle) || fileTitle, 140), artist: tidyArtist(val('Artist')), date: tidyDate(val('DateTimeOriginal')),
+        medium: label + ', ' + Number(ii.width).toLocaleString() + ' × ' + Number(ii.height).toLocaleString() + ' px' + (val('LicenseShortName') ? ' · ' + val('LicenseShortName') : ''),
+        link: ii.descriptionurl
+      };
+    }).filter(Boolean);
+  };
+}
+
+/* ================= Library of Congress newswire negatives ================= */
+const LOC = [
+  ['bain', 41526, 'Bain News Service glass negative', 3],
+  ['harris-ewing', 41544, 'Harris & Ewing glass negative', 2]
+];
+const nameCase = s => String(s || '').replace(/\b([a-zà-ÿ])([a-zà-ÿ']*)/g, (m, a, b) => a.toUpperCase() + b);
+function locPerson(c) {
+  if (!c) return '';
+  const first = Array.isArray(c) ? c[0] : c;
+  if (!first) return '';
+  const parts = String(first).split(',').map(x => x.trim()).filter(Boolean);
+  if (parts.length === 2 && !/\d|\.|\b(co|company|inc|service|office)\b/i.test(first)) return nameCase(parts[1] + ' ' + parts[0]);
+  return nameCase(parts.filter(p => !/^\d/.test(p)).join(', '));
+}
+
+const totals = { picsumPages: 34 };
+
+/* ================= sources ================= */
+const SOURCES = [
+  /* ---- stock ---- */
+  {
+    id: 'picsum', name: 'Unsplash, via Lorem Picsum', full: 'Unsplash, via Lorem Picsum', kinds: ['s'], weight: 2.5,
+    note: 'Live. About a thousand hand-picked Unsplash photographs that Lorem Picsum serves at any size. Shown at 2,000 px; Full size is the original.',
+    keep: 8,
+    async refill() {
+      const fetchPage = p => getJSON('https://picsum.photos/v2/list?limit=30&page=' + p);
+      let d = await fetchPage(rand(1, totals.picsumPages));
+      if (!Array.isArray(d) || !d.length) { totals.picsumPages = Math.max(1, Math.floor(totals.picsumPages / 2)); d = await fetchPage(rand(1, totals.picsumPages)); }
+      return (d || []).map(x => {
+        const s = Math.min(1, 2000 / Math.max(x.width, x.height));
+        const w = Math.round(x.width * s), h = Math.round(x.height * s);
+        const base = 'https://picsum.photos/id/' + x.id + '/';
+        return {
+          kind: 's', src: [base + w + '/' + h], preview: base + Math.round(w * 0.4) + '/' + Math.round(h * 0.4), full: x.download_url,
+          title: '', artist: x.author || '', date: '',
+          medium: 'Stock photograph, ' + Number(x.width).toLocaleString() + ' × ' + Number(x.height).toLocaleString() + ' px original · Unsplash licence',
+          link: x.url || base
+        };
+      });
+    }
+  },
+  {
+    id: 'unsplash', name: 'Unsplash on Commons', full: 'Unsplash, via Wikimedia Commons', kinds: ['s'], weight: 2,
+    note: 'Live. Tens of thousands of Unsplash photographs copied to Wikimedia Commons back when they were CC0.',
+    refill: commons(['intitle:Unsplash filew:>2000', 'Unsplash filew:>3000'], 's', 'Stock photograph')
+  },
+  {
+    id: 'pexels', name: 'Pexels and Pixabay', full: 'Pexels and Pixabay, via Wikimedia Commons', kinds: ['s'], weight: 1.5,
+    note: 'Live. Free stock from Pexels and Pixabay held on Wikimedia Commons.',
+    refill: commons(['Pexels filew:>2000', 'Pixabay filew:>2000'], 's', 'Stock photograph')
+  },
+  {
+    id: 'rawpixel', name: 'Rawpixel and StockSnap', full: 'Rawpixel and StockSnap, via Wikimedia Commons', kinds: ['s'], weight: 1,
+    note: 'Live. Public-domain stock from Rawpixel and StockSnap held on Wikimedia Commons: offices, hands, laptops, people smiling at salad.',
+    refill: commons(['rawpixel filew:>2000 -painting -illustration', 'StockSnap filew:>2000'], 's', 'Stock photograph')
+  },
+  {
+    id: 'wocintech', name: '#WOCinTech Chat', full: '#WOCinTech Chat, via Wikimedia Commons', kinds: ['s'], weight: 0.8,
+    note: 'Live. The open stock library of women of colour working in tech, shot for anyone to use.',
+    refill: commons(['WOCinTech filew:>1500'], 's', 'Stock photograph')
+  },
+
+  /* ---- paparazzi ---- */
+  {
+    id: 'skidmore', name: 'Gage Skidmore', full: 'Gage Skidmore, via Wikimedia Commons', kinds: ['p'], weight: 2,
+    note: 'Live. The most-used celebrity photographer on Wikipedia: Comic-Con panels, rallies, junkets and press lines since 2009.',
+    refill: commons(['intitle:"by Gage Skidmore" filew:>1500'], 'p', 'Press photograph')
+  },
+  {
+    id: 'cannes', name: 'Cannes and the festivals', full: 'Film festival red carpets, via Wikimedia Commons', kinds: ['p'], weight: 2,
+    note: 'Live. Red-carpet and photocall pictures from Cannes, the Berlinale, Venice and Toronto, many by Georges Biard.',
+    refill: commons([
+      '"Georges Biard" filew:>1500', 'intitle:Cannes "red carpet" filew:>1500', 'intitle:Cannes photocall filew:>1500',
+      'intitle:Berlinale filew:>2000', '"Venice Film Festival" "red carpet" filew:>1500', '"Toronto International Film Festival" filew:>1500 intitle:TIFF'
+    ], 'p', 'Press photograph')
+  },
+  {
+    id: 'carpet', name: 'Red carpets and premieres', full: 'Red carpets and premieres, via Wikimedia Commons', kinds: ['p'], weight: 1.5,
+    note: 'Live. Premieres, award nights, galas and arrivals, and now and then the paparazzi themselves.',
+    refill: commons([
+      '"red carpet" premiere filew:>1500', '"red carpet" arrivals filew:>1500', '"Met Gala" filew:>1500',
+      'intitle:paparazzi filew:>1200', '"Academy Awards" "red carpet" filew:>1500', '"Grammy Awards" arrivals filew:>1500'
+    ], 'p', 'Press photograph')
+  },
+  {
+    id: 'street', name: 'New York scene', full: 'New York scene photographers, via Wikimedia Commons', kinds: ['p'], weight: 1.2,
+    note: 'Live. David Shankbone’s parties, openings and Tribeca nights, and Eva Rinaldi’s red carpets and concerts.',
+    refill: commons(['"David Shankbone" filew:>1500', '"Eva Rinaldi" filew:>1500'], 'p', 'Press photograph')
+  },
+
+  /* ---- vintage press ---- */
+  {
+    id: 'anefo', name: 'Anefo, Netherlands', full: 'Anefo / Nationaal Archief, via Wikimedia Commons', kinds: ['w'], weight: 2,
+    note: 'Live. The Dutch press agency’s archive, 1945–1989: stars arriving at Schiphol, the Beatles and the Stones, Grand Gala du Disque. Released CC0 by the Nationaal Archief.',
+    refill: commons(['Anefo filew:>1500', 'Anefo "Grand Gala du Disque"', 'Anefo Schiphol aankomst', 'Anefo zangeres', 'Anefo filmster'], 'w', 'Press negative')
+  },
+  {
+    id: 'nywts', name: 'New York World-Telegram', full: 'New York World-Telegram & the Sun, via Wikimedia Commons', kinds: ['w'], weight: 1.8,
+    note: 'Live. Staff photographs from the New York World-Telegram & the Sun, 1920s–1960s, given to the Library of Congress without copyright restriction.',
+    refill: commons(['intitle:NYWTS'], 'w', 'Newspaper photograph')
+  },
+  {
+    id: 'adn', name: 'ADN Zentralbild', full: 'ADN Zentralbild / Bundesarchiv, via Wikimedia Commons', kinds: ['w'], weight: 1.2,
+    note: 'Live. East German state news-agency photographs from the Bundesarchiv’s Bild 183 series: concerts, film sets, visitors, everyday life.',
+    refill: commons(['intitle:"Bundesarchiv Bild 183" filew:>700'], 'w', 'Agency photograph')
+  },
+  {
+    id: 'warren', name: 'Allan Warren', full: 'Allan Warren, via Wikimedia Commons', kinds: ['w'], weight: 0.8,
+    note: 'Live. Allan Warren’s portraits of actors, musicians and the London set, 1970s and 1980s.',
+    refill: commons(['"Allan Warren" filew:>1000'], 'w', 'Portrait photograph')
+  },
+  {
+    id: 'loc', name: 'Library of Congress newswire', full: 'Library of Congress, Prints & Photographs Division', kinds: ['w'], weight: 1.5,
+    note: 'Live. Bain News Service and Harris & Ewing glass negatives, 1900s–1930s: ballplayers, actresses, aviators, suffragists, Washington society. 1,024 px; the record has the TIFF.',
+    keep: 5,
+    async refill() {
+      const col = pick(LOC.flatMap(c => Array(c[3]).fill(c)));
+      const pages = Math.max(1, Math.floor(col[1] / 25));
+      const d = await getJSON('https://www.loc.gov/collections/' + col[0] + '/?fo=json&c=25&sp=' + rand(1, pages) + '&at=results,pagination');
+      return (d.results || []).map(r => {
+        const sized = (r.image_url || []).map(u => { const w = /[#&]w=(\d+)/.exec(u), h = /[#&]h=(\d+)/.exec(u); return { u: String(u).split('#')[0], w: Math.max(w ? +w[1] : 0, h ? +h[1] : 0) }; })
+          .filter(x => /\.jpe?g$/i.test(x.u)).sort((a, b) => b.w - a.w);
+        if (!sized.length || (sized[0].w && sized[0].w < MIN_LONG_EDGE)) return null;
+        return {
+          kind: 'w', src: [sized[0].u],
+          title: clip(r.title, 160), artist: locPerson(r.contributor), date: String(r.date || '').slice(0, 4), medium: col[2],
+          link: r.url || r.id
+        };
+      }).filter(Boolean);
+    }
+  }
+];
+const KIND = { s: 'Stock', p: 'Paparazzi', w: 'Vintage press' };
+for (const s of SOURCES) { s.pool = { s: [], p: [], w: [] }; s.shown = 0; s.misses = 0; s.imgFails = 0; s.drawn = 0; s.coolUntil = 0; s.down = false; }
+
+/* ================= state ================= */
+let mode = store.get('mode', 'all');
+if (!['all', 's', 'p', 'w'].includes(mode)) mode = 'all';
+let savedOff = store.get('off', []);
+if (!Array.isArray(savedOff)) savedOff = [];
+const enabled = Object.fromEntries(SOURCES.map(s => [s.id, !savedOff.includes(s.id)]));
+let kept = store.get('kept', []);
+if (!Array.isArray(kept)) kept = [];
+const hist = [];
+let at = -1;
+let gen = 0, busy = false, pending = null, pendingGen = -1;
+const ready = [];
+const seen = new Set();
+const current = () => hist[at];
+
+/* ================= drawing a picture ================= */
+const fits = (s, m) => m === 'all' || s.kinds.includes(m);
+function chooseSource(m, skip) {
+  const now = Date.now();
+  let list = SOURCES.filter(s => enabled[s.id] && !skip.has(s.id) && fits(s, m));
+  const awake = list.filter(s => s.coolUntil <= now);
+  if (awake.length) list = awake;
+  if (!list.length) return null;
+  let r = Math.random() * list.reduce((n, s) => n + s.weight, 0);
+  for (const s of list) { r -= s.weight; if (r <= 0) return s; }
+  return list[list.length - 1];
+}
+
+async function draw(m, onTry) {
+  const skip = new Set();
+  for (let n = 0; n < 12; n++) {
+    const s = chooseSource(m, skip);
+    if (!s) break;
+    const kind = s.kinds[0];
+    if (onTry) onTry(s);
+    try {
+      if (!s.pool[kind].length) {
+        let got;
+        try {
+          got = await Promise.race([s.refill(kind), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 25000))]);
+        } catch (e) {
+          // the source itself didn't answer: rest it and move on
+          s.down = true; s.coolUntil = Date.now() + 60000; skip.add(s.id); renderSources();
+          continue;
+        }
+        got = shuffle((got || []).filter(it => it && it.src && it.src.length && it.link && !seen.has(it.link)));
+        const cap = s.keep || 8;
+        for (const it of got) if (s.pool[it.kind].length < cap) s.pool[it.kind].push(it);
+      }
+      const it = s.pool[kind].pop();
+      if (!it) { s.misses++; if (s.misses >= 3) { skip.add(s.id); s.misses = 0; } continue; }
+      if (seen.has(it.link)) continue;
+      it.sid = s.id; it.source = it.source || s.name; it.credit = it.credit || s.full;
+      await resolveImage(it);
+      seen.add(it.link);
+      s.down = false; s.misses = 0; s.imgFails = 0; s.drawn++; s.coolUntil = 0;
+      return it;
+    } catch (e) {
+      // the picture itself wouldn't load; a source whose pictures never load is rested for ten minutes
+      s.misses++; s.imgFails++;
+      if (!s.drawn && s.imgFails >= 4) { s.down = true; s.coolUntil = Date.now() + 600000; skip.add(s.id); s.imgFails = 0; renderSources(); }
+      else if (s.misses >= 3) { skip.add(s.id); s.misses = 0; }
+    }
+  }
+  throw new Error('no source answered');
+}
+
+function prefetch() {
+  if (pending || ready.length >= 2) return;
+  const g = pendingGen = gen;
+  pending = draw(mode).then(it => { pending = null; if (g === gen) { ready.push(it); prefetch(); } return it; }, e => { pending = null; throw e; });
+  pending.catch(() => {});
+}
+
+async function summon() {
+  if (busy) return;
+  if (at < hist.length - 1) { at++; paint(); return; }
+  busy = true;
+  setWait('Summoning…');
+  try {
+    let it = null;
+    while (!it) {
+      const g = gen;
+      it = ready.shift() || null;
+      if (!it && pending && pendingGen === g) {
+        try { it = await pending; const i = ready.indexOf(it); if (i >= 0) ready.splice(i, 1); } catch (e) { it = null; }
+      }
+      if (!it) it = await draw(mode, s => setWait('Asking ' + s.name + '…'));
+      if (g !== gen) it = null; // the filter changed while this one was on its way
+    }
+    hist.push(it); at = hist.length - 1;
+    const s = SOURCES.find(x => x.id === it.sid); if (s) s.shown++;
+    paint();
+    if (it.kind !== 's') strobe();
+    clearWait();
+    renderSources();
+  } catch (e) {
+    setWait(Object.values(enabled).some(Boolean)
+      ? 'No source answered. Check your connection, then press Summon again.'
+      : 'Every source is switched off. Tick at least one under Sources.', true);
+  } finally {
+    busy = false;
+    prefetch();
+  }
+}
+
+/* ================= painting ================= */
+const stage = $('stage'), work = $('work'), wait = $('wait'), flash = $('flash');
+function setWait(text, stuck) { $('wait-text').textContent = text; wait.hidden = false; wait.classList.toggle('stuck', !!stuck); stage.classList.toggle('busy', !stuck); }
+function clearWait() { wait.hidden = true; stage.classList.remove('busy'); }
+function strobe() { flash.classList.remove('pop'); void flash.offsetWidth; flash.classList.add('pop'); }
+
+function setLink(a, href) {
+  if (href) { a.href = href; a.removeAttribute('aria-disabled'); } else { a.removeAttribute('href'); a.setAttribute('aria-disabled', 'true'); }
+}
+function paint() {
+  const it = current();
+  if (!it) return;
+  if (work.getAttribute('src') !== it.shown) work.src = it.shown;
+  work.alt = [it.title, it.artist].filter(Boolean).join(', ') || KIND[it.kind] + ' photograph';
+  work.hidden = false;
+  $('l-artist').textContent = it.artist || 'Photographer not recorded';
+  $('l-title').textContent = it.title || 'Untitled';
+  $('l-date').textContent = it.date ? ', ' + it.date : '';
+  $('l-medium').textContent = it.medium || '';
+  $('l-src').textContent = it.credit + (it.w ? ' · ' + it.w.toLocaleString() + ' × ' + it.h.toLocaleString() + ' px' : '');
+  setLink($('lnk-record'), it.link);
+  setLink($('lnk-full'), it.full || it.shown);
+  $('btn-back').disabled = at <= 0;
+  const k = $('btn-keep');
+  k.disabled = false;
+  const isKept = kept.some(x => x.link === it.link);
+  k.setAttribute('aria-pressed', String(isKept));
+  k.textContent = isKept ? 'Kept' : 'Keep';
+}
+
+/* ================= kept ================= */
+function toggleKeep() {
+  const it = current();
+  if (!it) return;
+  const i = kept.findIndex(x => x.link === it.link);
+  if (i >= 0) kept.splice(i, 1);
+  else kept.unshift({ link: it.link, title: it.title, artist: it.artist, date: it.date, medium: it.medium, credit: it.credit, source: it.source, sid: it.sid, kind: it.kind, shown: it.shown, full: it.full, thumb: it.preview || it.shown, w: it.w, h: it.h });
+  store.set('kept', kept);
+  paint(); renderKept();
+}
+function renderKept() {
+  $('n-kept').textContent = kept.length;
+  $('kept-hint').hidden = kept.length > 0;
+  const list = $('kept-list');
+  list.textContent = '';
+  kept.forEach(k => {
+    const fig = document.createElement('figure');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'thumb'; b.title = 'Put back on the wall';
+    const im = document.createElement('img');
+    im.loading = 'lazy'; im.referrerPolicy = 'no-referrer'; im.alt = k.title || ''; im.src = k.thumb;
+    b.appendChild(im);
+    b.addEventListener('click', () => { hist.push(Object.assign({ src: [k.shown] }, k)); at = hist.length - 1; paint(); clearWait(); closeDrawers(); });
+    const cap = document.createElement('figcaption');
+    cap.textContent = k.title || 'Untitled';
+    const sub = document.createElement('span');
+    sub.textContent = ' ' + [k.artist, k.source].filter(Boolean).join(' · ');
+    cap.appendChild(sub);
+    const rm = document.createElement('button');
+    rm.type = 'button'; rm.className = 'rm'; rm.textContent = 'Remove';
+    rm.addEventListener('click', () => { kept = kept.filter(x => x.link !== k.link); store.set('kept', kept); renderKept(); paint(); });
+    fig.append(b, cap, rm);
+    list.appendChild(fig);
+  });
+}
+
+/* ================= sources drawer ================= */
+function renderSources() {
+  const on = SOURCES.filter(s => enabled[s.id]).length;
+  $('n-sources').textContent = on + '/' + SOURCES.length;
+  const list = $('src-list');
+  if (!list.childElementCount) {
+    SOURCES.forEach(s => {
+      const row = document.createElement('label');
+      row.className = 'src-row';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox'; cb.id = 'src-' + s.id; cb.checked = enabled[s.id];
+      cb.addEventListener('change', () => {
+        enabled[s.id] = cb.checked;
+        store.set('off', SOURCES.filter(x => !enabled[x.id]).map(x => x.id));
+        reset();
+      });
+      const name = document.createElement('b'); name.textContent = s.name;
+      const note = document.createElement('small'); note.textContent = s.note;
+      const stat = document.createElement('span'); stat.className = 'stat'; stat.id = 'stat-' + s.id;
+      row.append(cb, name, note, stat);
+      list.appendChild(row);
+    });
+  }
+  SOURCES.forEach(s => {
+    const kinds = s.kinds.map(k => KIND[k]).join(' + ');
+    const state = s.down && s.coolUntil > Date.now() ? 'no answer just now' : s.shown ? s.shown + ' summoned' : 'not drawn yet';
+    $('stat-' + s.id).textContent = kinds + ' · ' + state;
+  });
+}
+
+/* Filter or source list changed: drop what was queued under the old settings. */
+function reset() {
+  gen++; ready.length = 0;
+  for (const s of SOURCES) { s.misses = 0; }
+  renderSources();
+  if (!busy && wait.classList.contains('stuck')) summon(); else prefetch();
+}
+
+/* ================= wiring ================= */
+function setMode(m) {
+  mode = m; store.set('mode', m);
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.mode === m)));
+}
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.mode === mode) return;
+  setMode(b.dataset.mode);
+  gen++; ready.length = 0;
+  at = hist.length - 1;
+  summon();
+}));
+
+const drawers = { sources: $('drawer-sources'), kept: $('drawer-kept') };
+function closeDrawers() { Object.values(drawers).forEach(d => d.hidden = true); $('btn-sources').setAttribute('aria-expanded', 'false'); $('btn-kept').setAttribute('aria-expanded', 'false'); }
+function toggleDrawer(name) {
+  const open = drawers[name].hidden;
+  closeDrawers();
+  if (open) { drawers[name].hidden = false; $('btn-' + name).setAttribute('aria-expanded', 'true'); if (name === 'sources') renderSources(); }
+}
+$('btn-sources').addEventListener('click', () => toggleDrawer('sources'));
+$('btn-kept').addEventListener('click', () => toggleDrawer('kept'));
+document.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', closeDrawers));
+
+$('btn-summon').addEventListener('click', () => { at = hist.length - 1; summon(); });
+$('btn-back').addEventListener('click', () => { if (at > 0) { at--; paint(); clearWait(); } });
+$('btn-keep').addEventListener('click', toggleKeep);
+work.addEventListener('error', () => { if (current() && !busy) { hist.splice(at, 1); at = hist.length - 1; summon(); } });
+
+document.addEventListener('keydown', e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const tag = (e.target.tagName || '').toLowerCase();
+  if (e.key === 'Escape') { closeDrawers(); return; }
+  if (tag === 'input' || tag === 'textarea') return;
+  if (e.key === ' ' || e.key === 'ArrowRight') {
+    if (e.key === ' ' && (tag === 'button' || tag === 'a')) return;
+    e.preventDefault(); summon();
+  } else if (e.key === 'ArrowLeft') { if (at > 0) { at--; paint(); clearWait(); } }
+  else if (e.key === 'k' || e.key === 'K') toggleKeep();
+});
+
+setMode(mode);
+renderSources();
+renderKept();
+summon();
+})();
+</script>
+</body>
+</html>
