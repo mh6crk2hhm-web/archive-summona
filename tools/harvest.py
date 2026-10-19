@@ -242,8 +242,25 @@ def save(kind, entries):
         except OSError: pass
     json.dump({'chunks': len(chunks), 'total': len(entries), 'built': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime())}, open(meta, 'w'))
 
+# Where a site's images really live is an open question until the index answers it.
+PROBES = ['www.style.com/slideshows/', 'www.style.com/slideshows/2009/', 'media.style.com/', 'www.style.com/images/', 'img.style.com/',
+          'www.style.com/fashionshows/', 'assets.style.com/', 'www.style.com/assets/', 'www.firstview.com/', 'www.nowfashion.com/']
+
+def probe():
+    lines = []
+    for pre in PROBES:
+        text = cdx({'url': pre, 'matchType': 'prefix', 'fl': 'original', 'collapse': 'urlkey', 'limit': '400',
+                    'filter': ['statuscode:200', 'mimetype:image/(jpeg|png|gif)', 'length:' + AT_LEAST_25KB]}) or ''
+        urls = text.split()
+        picks = [urls[i] for i in sorted(random.sample(range(len(urls)), min(3, len(urls))))] if urls else []
+        lines.append('%s -> %d%s' % (pre, len(urls), (': ' + ' ; '.join(u[:150] for u in picks)) if picks else ''))
+        time.sleep(3)
+    for i in range(0, len(lines), 3):
+        print('::notice title=probe::' + ' || '.join(lines[i:i + 3]))
+
 def main():
     os.makedirs(OUT, exist_ok=True)
+    if os.environ.get('HARVEST_PROBE'): probe()
     kinds = ['s', 'p', 'e', 'x', 'f']
     new = {k: [] for k in kinds}
     queries = 0
