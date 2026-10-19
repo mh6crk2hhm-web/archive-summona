@@ -1,0 +1,30 @@
+  retry 1 HTTPError HTTP Error 503: Service Unavailable
+  retry 2 HTTPError HTTP Error 503: Service Unavailable
+  retry 3 HTTPError HTTP Error 503: Service Unavailable
+  cdn04.justjared.com/wp-content/uploads/                   1 blocks, sampled  1, kept     0
+  retry 1 URLError <urlopen error timed out>
+  retry 2 HTTPError HTTP Error 503: Service Unavailable
+  retry 1 HTTPError HTTP Error 503: Service Unavailable
+  retry 2 HTTPError HTTP Error 503: Service Unavailable
+  retry 3 HTTPError HTTP Error 503: Service Unavailable
+  retry 4 HTTPError HTTP Error 503: Service Unavailable
+  retry 1 URLError <urlopen error timed out>
+  retry 2 URLError <urlopen error _ssl.c:983: The handshake operation timed out>
+  image.shutterstock.com/z/                              1196 blocks, sampled  8, kept  5729
+  retry 1 URLError <urlopen error timed out>
+  retry 2 URLError <urlopen error _ssl.c:983: The handshake operation timed out>
+  retry 1 HTTPError HTTP Error 503: Service Unavailable
+  retry 2 URLError <urlopen error timed out>
+  retry 3 URLError <urlopen error _ssl.c:983: The handshake operation timed out>
+  retry 1 URLError <urlopen error timed out>
+  retry 2 URLError <urlopen error _ssl.c:983: The handshake operation timed out>
+  retry 1 HTTPError HTTP Error 503: Service Unavailable
+  retry 2 URLError <urlopen error timed out>
+  retry 3 HTTPError HTTP Error 503: Service Unavailable
+  retry 4 HTTPError HTTP Error 503: Service Unavailable
+  www.egotastic.com/                                      935 blocks, sampled  6, kept     0
+out of time
+kind s: 5729 new this run, 5374 in total
+kind p: 0 new this run, 0 in total
+kind e: 0 new this run, 0 in total
+kind x: 0 new this run, 0 in total
