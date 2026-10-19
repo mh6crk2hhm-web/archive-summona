@@ -155,6 +155,13 @@ button{cursor:pointer}
 .flash.pop{animation:pop .42s ease-out}
 @keyframes pop{0%{opacity:.5}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.flash.pop{animation:none}}
+#work.px{image-rendering:pixelated}
+@media (max-width:640px){
+  .seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+  .seg button+button{border-left:1px solid var(--ink)}
+  .seg button:nth-child(3n+1){border-left:0}
+  .seg button:nth-child(n+4){border-top:1px solid var(--ink)}
+}
 
 /* ---------- Shutterstock token ---------- */
 .token{display:grid;gap:6px;margin:10px 0 2px;padding:12px;border:1px solid var(--line);border-radius:2px}
@@ -175,7 +182,9 @@ button{cursor:pointer}
     <button type="button" role="radio" data-mode="all" aria-checked="true">Everything</button>
     <button type="button" role="radio" data-mode="s" aria-checked="false">Stock</button>
     <button type="button" role="radio" data-mode="p" aria-checked="false">Paparazzi</button>
+    <button type="button" role="radio" data-mode="e" aria-checked="false">Red carpet</button>
     <button type="button" role="radio" data-mode="w" aria-checked="false">Vintage press</button>
+    <button type="button" role="radio" data-mode="x" aria-checked="false">Early web</button>
   </div>
   <div class="tools">
     <button type="button" class="btn" id="btn-sources" aria-expanded="false">Sources <span class="count" id="n-sources"></span></button>
@@ -239,6 +248,8 @@ const $ = id => document.getElementById(id);
 const rand = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 const shuffle = arr => { for (let i = arr.length - 1; i > 0; i--) { const j = rand(0, i); [arr[i], arr[j]] = [arr[j], arr[i]]; } return arr; };
+const sample = (arr, n) => shuffle(arr.slice()).slice(0, n);
+const firstYear = s => { const m = /(19\d\d|20\d\d)/.exec(String(s || '')); return m ? +m[1] : 0; };
 const clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); return s.length > n ? s.slice(0, n - 1).trimEnd() + '…' : s; };
 const plain = html => { const d = new DOMParser().parseFromString(String(html || ''), 'text/html'); return (d.body.textContent || '').replace(/\s+/g, ' ').trim(); };
 const store = {
@@ -250,7 +261,7 @@ async function getJSON(url, ms = 14000) {
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), ms);
   try {
-    const r = await fetch(url, { signal: ctl.signal });
+    const r = await fetch(url, { signal: ctl.signal, cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);
     return await r.json();
   } finally { clearTimeout(t); }
@@ -273,7 +284,7 @@ function loadImg(url, ms = 30000, min = MIN_LONG_EDGE) {
 async function resolveImage(item) {
   const took = (url, im) => { item.shown = url; item.w = im.naturalWidth; item.h = im.naturalHeight; };
   const best = async (ms) => {
-    for (const u of item.src) { try { took(u, await loadImg(u, ms)); return true; } catch (e) { /* next size */ } }
+    for (const u of item.src) { try { took(u, await loadImg(u, ms, item.min || MIN_LONG_EDGE)); return true; } catch (e) { /* next size */ } }
     return false;
   };
   if (item.preview) {
@@ -301,29 +312,73 @@ const tidyDate = s => { s = String(s || '').trim(); const iso = /^(\d{4}-\d{2}-\
 const tidyArtist = s => clip(String(s || '').replace(/^(Unknown author|Unknown photographer|Onbekend)$/i, '').replace(/\s*from\s+[\w ,.-]+$/i, ''), 80);
 
 /* ================= Wikimedia Commons: most of the press and stock pictures live here ================= */
-function commons(searches, kind, label) {
+const subjectOf = t => String(t || '').toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-zà-ÿ ]+/g, ' ').replace(/\s+/g, ' ').trim().split(' ').slice(0, 3).join(' ');
+// opt.mimes: which file types to accept (photographs only by default: PNGs here are mostly logos and screenshots)
+// opt.before: drop files whose recorded date is that year or later, or missing
+// opt.min: smallest long edge worth showing; opt.pixel: scale small pictures up with hard pixels
+function commons(searches, kind, label, opt = {}) {
+  const mimes = opt.mimes || /^image\/jpeg$/;
   return async () => {
     const q = pick(searches);
+    // the nonce matters: the same URL comes back from cache with the same "random" batch
     const url = 'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*&generator=search' +
-      '&gsrsearch=' + encodeURIComponent(q) + '&gsrsort=random&gsrnamespace=6&gsrlimit=8' +
+      '&gsrsearch=' + encodeURIComponent(q) + '&gsrsort=random&gsrnamespace=6&gsrlimit=' + (opt.limit || 20) +
       '&prop=imageinfo&iiprop=url%7Csize%7Cmime%7Cextmetadata&iiurlwidth=1920' +
-      '&iiextmetadatafilter=ObjectName%7CArtist%7CDateTimeOriginal%7CCredit%7CLicenseShortName';
+      '&iiextmetadatafilter=ObjectName%7CArtist%7CDateTimeOriginal%7CCredit%7CLicenseShortName' +
+      '&requestid=' + Math.random().toString(36).slice(2);
     const d = await getJSON(url);
     const pages = Object.values((d.query && d.query.pages) || {});
     return pages.map(p => {
       const ii = p.imageinfo && p.imageinfo[0];
-      if (!ii || !ii.thumburl || ii.mime !== 'image/jpeg') return null; // photographs only: PNGs here are mostly logos and screenshots
+      if (!ii || !ii.thumburl || !mimes.test(ii.mime || '')) return null;
       const m = ii.extmetadata || {};
       const val = k => (m[k] ? plain(m[k].value) : '');
+      const date = tidyDate(val('DateTimeOriginal'));
+      if (opt.before) { const y = firstYear(date); if (!y || y >= opt.before) return null; }
       const fileTitle = String(p.title || '').replace(/^File:/, '').replace(/\.[a-z0-9]+$/i, '').replace(/_/g, ' ');
       return {
-        kind, src: [ii.thumburl, ii.thumburl.replace(/\/\d+px-/, '/1280px-')], full: ii.url,
-        title: clip(tidyTitle(val('ObjectName') || fileTitle) || fileTitle, 140), artist: tidyArtist(val('Artist')), date: tidyDate(val('DateTimeOriginal')),
+        kind, src: [ii.thumburl, ii.thumburl.replace(/\/\d+px-/, '/1280px-')], full: ii.url, min: opt.min, pixel: opt.pixel,
+        subject: subjectOf(tidyTitle(val('ObjectName') || fileTitle)),
+        title: clip(tidyTitle(val('ObjectName') || fileTitle) || fileTitle, 140), artist: tidyArtist(val('Artist')), date,
         medium: label + ', ' + Number(ii.width).toLocaleString() + ' × ' + Number(ii.height).toLocaleString() + ' px' + (val('LicenseShortName') ? ' · ' + val('LicenseShortName') : ''),
         link: ii.descriptionurl
       };
     }).filter(Boolean);
   };
+}
+
+/* ================= Internet Archive Flash library ================= */
+const IA = 'https://archive.org';
+const iaFile = (id, name) => IA + '/download/' + encodeURIComponent(id) + '/' + String(name).split('/').map(encodeURIComponent).join('/');
+const FLASH = { q: '', n: 0 };
+async function flashRefill() {
+  const all = 'collection:softwarelibrary_flash_games', era = all + ' AND year:[2000 TO 2011]';
+  const search = (q, rows, page) => getJSON(IA + '/advancedsearch.php?q=' + encodeURIComponent(q) +
+    '&fl%5B%5D=identifier&rows=' + rows + '&page=' + page + '&output=json');
+  if (!FLASH.q) {
+    // keep to the 2000s where the library records a year; if too few do, take the whole library
+    const n = ((await search(era, 1, 1)).response || {}).numFound || 0;
+    if (n >= 300) { FLASH.q = era; FLASH.n = n; } else { FLASH.q = all; FLASH.n = ((await search(all, 1, 1)).response || {}).numFound || 6000; }
+  }
+  const rows = 40;
+  const d = await search(FLASH.q, rows, rand(1, Math.max(1, Math.ceil(FLASH.n / rows))));
+  const docs = sample((d.response && d.response.docs) || [], 4);
+  const got = await Promise.allSettled(docs.map(async doc => {
+    const m = await getJSON(IA + '/metadata/' + encodeURIComponent(doc.identifier));
+    const md = m.metadata || {};
+    const shot = (m.files || [])
+      .filter(f => /\.(png|jpe?g|gif)$/i.test(f.name || '') && !/__ia_thumb|_thumb\.|(^|\/)thumbs?\//i.test(f.name))
+      .sort((a, b) => (+b.size || 0) - (+a.size || 0))[0];
+    if (!shot) return null;
+    const one = v => Array.isArray(v) ? v[0] : v;
+    return {
+      kind: 'x', src: [iaFile(doc.identifier, shot.name)], min: 240, pixel: true,
+      title: clip(one(md.title) || doc.identifier, 140), artist: clip(one(md.creator) || one(md.developer), 80), date: String(one(md.year) || one(md.date) || '').slice(0, 4),
+      medium: 'Flash game screenshot · the record page plays it in the browser',
+      link: IA + '/details/' + encodeURIComponent(doc.identifier)
+    };
+  }));
+  return got.filter(r => r.status === 'fulfilled').map(r => r.value).filter(Boolean);
 }
 
 /* ================= Library of Congress newswire negatives ================= */
@@ -352,11 +407,14 @@ const SS_STOCK_Q = [
   'senior couple smiling', 'student library', 'thumbs up', 'woman yoga sunrise', 'man pointing', 'diverse group celebrating',
   'chef kitchen', 'cocktail party', 'night city skyline', 'model studio portrait', 'surprised face', 'virtual reality headset'
 ];
+// Paparazzi means caught in the wild: errands, exits, coffee runs. Events live under Red carpet.
 const SS_PAP_Q = [
-  'red carpet', 'premiere', 'arrivals', 'paparazzi', 'celebrity sighting', 'spotted', 'street style', 'fashion week',
-  'after party', 'gala', 'film festival', 'photocall', 'out and about', 'leaving restaurant', 'airport arrival', 'backstage'
+  'celebrity sightings', 'celebrity sightings Los Angeles', 'celebrity sightings New York', 'out and about', 'spotted',
+  'pumping gas', 'gas station', 'grocery shopping', 'coffee run', 'walking dog', 'leaving gym', 'leaving restaurant',
+  'seen leaving', 'at LAX', 'shopping in Beverly Hills', 'Malibu beach', 'filming on location', 'out to lunch', 'jogging', 'farmers market'
 ];
-const SS_OLD_Q = ['premiere', 'arrivals', 'celebrity', 'film festival', 'party', 'concert', 'nightclub', 'fashion show', 'photocall', 'airport'];
+const SS_CARPET_Q = ['red carpet', 'premiere', 'arrivals', 'after party', 'gala', 'photocall', 'fashion week front row', 'awards'];
+const SS_OLD_Q = ['out and about', 'spotted', 'paparazzi', 'leaving restaurant', 'airport', 'nightclub', 'shopping', 'on holiday', 'premiere', 'arrivals'];
 const pad = n => String(n).padStart(2, '0');
 
 async function ssGet(path, ms = 14000) {
@@ -383,7 +441,13 @@ const ssEditorial = (x, kind) => {
     link: 'https://www.shutterstock.com/editorial/image-editorial/' + x.id
   };
 };
-const ssMonth = (from, to) => { const y = rand(from, to), m = rand(1, 12); return '&date_start=' + y + '-' + pad(m) + '-01&date_end=' + y + '-' + pad(m) + '-28'; };
+// A random six-day window: twenty queries across twenty-odd years of weeks rarely land on the same twenty frames twice.
+const ssMonth = (from, to) => {
+  const a = Date.UTC(from, 0, 1), b = Math.min(Date.UTC(to, 11, 25), Date.now() - 7 * 864e5);
+  const d0 = new Date(a + Math.random() * (b - a)), d1 = new Date(d0.getTime() + 6 * 864e5);
+  const iso = d => d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate());
+  return '&date_start=' + iso(d0) + '&date_end=' + iso(d1);
+};
 
 /* ================= sources ================= */
 const SOURCES = [
@@ -452,8 +516,8 @@ const SOURCES = [
 
   /* ---- paparazzi ---- */
   {
-    id: 'ssed', name: 'Shutterstock Editorial', full: 'Shutterstock Editorial (watermarked preview)', kinds: ['p'], weight: 2.5, needsToken: true,
-    note: 'Live, with your token. Red carpets, sightings and street style from Shutterstock’s editorial wires (Rex Features and others), 2000 to now, at 1,500 px. Your free plan may not include editorial; if so this says so below.',
+    id: 'ssed', name: 'Shutterstock sightings', full: 'Shutterstock Editorial (watermarked preview)', kinds: ['p'], weight: 4, needsToken: true,
+    note: 'Live, with your token. The real thing: celebrity-sightings wires (Rex Features, Backgrid and others), 2000 to now, at 1,500 px. Gas stations, coffee runs, LAX, gym exits. Your free plan may not include editorial; if so this says so below.',
     keep: 20,
     async refill() {
       const d = await ssGet('editorial/images/search?country=USA&sort=newest&per_page=20&query=' + encodeURIComponent(pick(SS_PAP_Q)) + ssMonth(2000, new Date().getFullYear() - 1));
@@ -461,30 +525,50 @@ const SOURCES = [
     }
   },
   {
-    id: 'skidmore', name: 'Gage Skidmore', full: 'Gage Skidmore, via Wikimedia Commons', kinds: ['p'], weight: 2,
-    note: 'Live. The most-used celebrity photographer on Wikipedia: Comic-Con panels, rallies, junkets and press lines since 2009.',
-    refill: commons(['intitle:"by Gage Skidmore" filew:>1500'], 'p', 'Press photograph')
+    id: 'candid', name: 'Candid and on location', full: 'Candid celebrity photographs, via Wikimedia Commons', kinds: ['p'], weight: 1.5,
+    note: 'Live. The few candid shots that are free to use: stars filming on New York streets, spotted out, and the paparazzi pack itself. Thin next to Shutterstock’s sightings.',
+    refill: commons([
+      '"filming on location" filew:>1200', 'intitle:filming "New York" actor filew:>1200', '"on the set of" street filew:>1200',
+      'intitle:spotted filew:>1000', '"spotted in" celebrity filew:>1000', 'intitle:paparazzi filew:>1000', 'paparazzi photographers swarm filew:>1000',
+      '"out and about" actress filew:>1000', '"walking in" actor "New York City" filew:>1200'
+    ], 'p', 'Candid photograph')
+  },
+
+  /* ---- red carpet ---- */
+  {
+    id: 'sscarpet', name: 'Shutterstock red carpet', full: 'Shutterstock Editorial (watermarked preview)', kinds: ['e'], weight: 2, needsToken: true,
+    note: 'Live, with your token. Premieres, galas, front rows and after-parties from Shutterstock’s editorial wires, 2000 to now.',
+    keep: 20,
+    async refill() {
+      const d = await ssGet('editorial/images/search?country=USA&sort=newest&per_page=20&query=' + encodeURIComponent(pick(SS_CARPET_Q)) + ssMonth(2000, new Date().getFullYear() - 1));
+      return (d.data || []).map(x => ssEditorial(x, 'e')).filter(Boolean);
+    }
   },
   {
-    id: 'cannes', name: 'Cannes and the festivals', full: 'Film festival red carpets, via Wikimedia Commons', kinds: ['p'], weight: 2,
+    id: 'skidmore', name: 'Gage Skidmore', full: 'Gage Skidmore, via Wikimedia Commons', kinds: ['e'], weight: 2,
+    note: 'Live. The most-used celebrity photographer on Wikipedia: Comic-Con panels, rallies, junkets and press lines since 2009.',
+    refill: commons(['intitle:"by Gage Skidmore" filew:>1500'], 'e', 'Press photograph')
+  },
+  {
+    id: 'cannes', name: 'Cannes and the festivals', full: 'Film festival red carpets, via Wikimedia Commons', kinds: ['e'], weight: 2,
     note: 'Live. Red-carpet and photocall pictures from Cannes, the Berlinale, Venice and Toronto, many by Georges Biard.',
     refill: commons([
       '"Georges Biard" filew:>1500', 'intitle:Cannes "red carpet" filew:>1500', 'intitle:Cannes photocall filew:>1500',
       'intitle:Berlinale filew:>2000', '"Venice Film Festival" "red carpet" filew:>1500', '"Toronto International Film Festival" filew:>1500 intitle:TIFF'
-    ], 'p', 'Press photograph')
+    ], 'e', 'Press photograph')
   },
   {
-    id: 'carpet', name: 'Red carpets and premieres', full: 'Red carpets and premieres, via Wikimedia Commons', kinds: ['p'], weight: 1.5,
-    note: 'Live. Premieres, award nights, galas and arrivals, and now and then the paparazzi themselves.',
+    id: 'carpet', name: 'Red carpets and premieres', full: 'Red carpets and premieres, via Wikimedia Commons', kinds: ['e'], weight: 1.5,
+    note: 'Live. Premieres, award nights, galas and arrivals.',
     refill: commons([
       '"red carpet" premiere filew:>1500', '"red carpet" arrivals filew:>1500', '"Met Gala" filew:>1500',
-      'intitle:paparazzi filew:>1200', '"Academy Awards" "red carpet" filew:>1500', '"Grammy Awards" arrivals filew:>1500'
-    ], 'p', 'Press photograph')
+      '"Academy Awards" "red carpet" filew:>1500', '"Grammy Awards" arrivals filew:>1500'
+    ], 'e', 'Press photograph')
   },
   {
-    id: 'street', name: 'New York scene', full: 'New York scene photographers, via Wikimedia Commons', kinds: ['p'], weight: 1.2,
+    id: 'street', name: 'New York scene', full: 'New York scene photographers, via Wikimedia Commons', kinds: ['e'], weight: 1.2,
     note: 'Live. David Shankbone’s parties, openings and Tribeca nights, and Eva Rinaldi’s red carpets and concerts.',
-    refill: commons(['"David Shankbone" filew:>1500', '"Eva Rinaldi" filew:>1500'], 'p', 'Press photograph')
+    refill: commons(['"David Shankbone" filew:>1500', '"Eva Rinaldi" filew:>1500'], 'e', 'Press photograph')
   },
 
   /* ---- vintage press ---- */
@@ -536,14 +620,35 @@ const SOURCES = [
         };
       }).filter(Boolean);
     }
+  },
+
+  /* ---- early web ---- */
+  {
+    id: 'flashgames', name: 'Flash games', full: 'Internet Archive Flash library', kinds: ['x'], weight: 2,
+    note: 'Live. Screenshots from the Internet Archive’s library of about 6,500 preserved Flash games, kept to 2000–2011 where the year is known. Record ↗ opens the game, playable in the browser.',
+    keep: 6,
+    refill: flashRefill
+  },
+  {
+    id: 'clipart', name: 'Clip art', full: 'Openclipart and public-domain clip art, via Wikimedia Commons', kinds: ['x'], weight: 1.5,
+    note: 'Live. Openclipart’s public-domain library and other clip art held on Wikimedia Commons, drawn at 1,920 px.',
+    refill: commons(['openclipart', 'openclipart filemime:image/svg+xml', '"clip art" filemime:image/svg+xml', 'clipart filemime:image/svg+xml', '"clip art" filemime:image/png', '"Open Clip Art Library"'],
+      'x', 'Clip art', { mimes: /^image\/(svg\+xml|png|gif)$/, min: 200 })
+  },
+  {
+    id: 'deviantart', name: 'DeviantArt, before 2014', full: 'DeviantArt, via Wikimedia Commons', kinds: ['x'], weight: 1.5,
+    note: 'Live. Work first posted on DeviantArt and released under Creative Commons, copied to Wikimedia Commons, kept to pieces dated before 2014. Only the openly licensed corner of DeviantArt; the site itself has no open feed.',
+    refill: commons(['deviantart', 'intitle:deviantart', '"deviantart.com" filew:>500', 'deviantart digital art', 'deviantart fan art', 'deviantart wallpaper', 'deviantart photomanipulation'],
+      'x', 'DeviantArt post', { mimes: /^image\/(jpeg|png|gif)$/, before: 2014, min: 400, limit: 40 })
   }
 ];
-const KIND = { s: 'Stock', p: 'Paparazzi', w: 'Vintage press' };
-for (const s of SOURCES) { s.pool = { s: [], p: [], w: [] }; s.shown = 0; s.misses = 0; s.imgFails = 0; s.drawn = 0; s.coolUntil = 0; s.down = false; }
+const KIND = { s: 'Stock', p: 'Paparazzi', e: 'Red carpet', w: 'Vintage press', x: 'Early web' };
+const emptyPool = () => ({ s: [], p: [], e: [], w: [], x: [] });
+for (const s of SOURCES) { s.pool = emptyPool(); s.shown = 0; s.misses = 0; s.imgFails = 0; s.drawn = 0; s.coolUntil = 0; s.down = false; }
 
 /* ================= state ================= */
 let mode = store.get('mode', 'all');
-if (!['all', 's', 'p', 'w'].includes(mode)) mode = 'all';
+if (!['all', 's', 'p', 'e', 'w', 'x'].includes(mode)) mode = 'all';
 let savedOff = store.get('off', []);
 if (!Array.isArray(savedOff)) savedOff = [];
 const enabled = Object.fromEntries(SOURCES.map(s => [s.id, !savedOff.includes(s.id)]));
@@ -553,7 +658,19 @@ const hist = [];
 let at = -1;
 let gen = 0, busy = false, pending = null, pendingGen = -1;
 const ready = [];
-const seen = new Set();
+// What's been shown is remembered across visits, so a reload doesn't bring the same pictures back.
+const SEEN_MAX = 3000;
+let seenList = store.get('seen', []);
+if (!Array.isArray(seenList)) seenList = [];
+const seen = new Set(seenList);
+let seenSave = 0;
+function markSeen(link) {
+  seen.add(link); seenList.push(link);
+  if (seenList.length > SEEN_MAX) seenList.splice(0, seenList.length - SEEN_MAX);
+  clearTimeout(seenSave); seenSave = setTimeout(() => store.set('seen', seenList), 400);
+}
+// Commons photographers shoot the same person in series ("Bruce Willis 2", "3", "4"): one of each per stretch.
+const recentSubjects = [];
 const current = () => hist[at];
 
 /* ================= drawing a picture ================= */
@@ -571,6 +688,7 @@ function chooseSource(m, skip) {
 
 async function draw(m, onTry) {
   const skip = new Set();
+  let spare = null; // a fresh picture of someone shown recently: used only if nothing else turns up
   for (let n = 0; n < 12; n++) {
     const s = chooseSource(m, skip);
     if (!s) break;
@@ -595,8 +713,10 @@ async function draw(m, onTry) {
       if (!it) { s.misses++; if (s.misses >= 3) { skip.add(s.id); s.misses = 0; } continue; }
       if (seen.has(it.link)) continue;
       it.sid = s.id; it.source = it.source || s.name; it.credit = it.credit || s.full;
+      if (it.subject && recentSubjects.includes(it.subject)) { if (!spare) spare = it; continue; }
       await resolveImage(it);
-      seen.add(it.link);
+      markSeen(it.link);
+      if (it.subject) { recentSubjects.push(it.subject); if (recentSubjects.length > 150) recentSubjects.shift(); }
       s.down = false; s.misses = 0; s.imgFails = 0; s.drawn++; s.coolUntil = 0;
       return it;
     } catch (e) {
@@ -605,6 +725,9 @@ async function draw(m, onTry) {
       if (!s.drawn && s.imgFails >= 4) { s.down = true; s.coolUntil = Date.now() + 600000; skip.add(s.id); s.imgFails = 0; renderSources(); }
       else if (s.misses >= 3) { skip.add(s.id); s.misses = 0; }
     }
+  }
+  if (spare) {
+    try { await resolveImage(spare); markSeen(spare.link); return spare; } catch (e) { /* fall through */ }
   }
   throw new Error('no source answered');
 }
@@ -635,13 +758,13 @@ async function summon() {
     hist.push(it); at = hist.length - 1;
     const s = SOURCES.find(x => x.id === it.sid); if (s) s.shown++;
     paint();
-    if (it.kind !== 's') strobe();
+    if ('pew'.includes(it.kind)) strobe();
     clearWait();
     renderSources();
   } catch (e) {
-    setWait(Object.values(enabled).some(Boolean)
-      ? 'No source answered. Check your connection, then press Summon again.'
-      : 'Every source is switched off. Tick at least one under Sources.', true);
+    setWait(!Object.values(enabled).some(Boolean) ? 'Every source is switched off. Tick at least one under Sources.'
+      : !ssToken && 'pe'.includes(mode) ? 'The free sources have run dry for now. Real paparazzi volume comes from Shutterstock: add your token under Sources.'
+      : 'No source answered. Check your connection, then press Summon again.', true);
   } finally {
     busy = false;
     prefetch();
@@ -661,7 +784,8 @@ function paint() {
   const it = current();
   if (!it) return;
   if (work.getAttribute('src') !== it.shown) work.src = it.shown;
-  work.alt = [it.title, it.artist].filter(Boolean).join(', ') || KIND[it.kind] + ' photograph';
+  work.alt = [it.title, it.artist].filter(Boolean).join(', ') || KIND[it.kind] + ' picture';
+  work.classList.toggle('px', !!it.pixel && Math.max(it.w || 0, it.h || 0) < 1000);
   work.hidden = false;
   $('l-artist').textContent = it.artist || 'Photographer not recorded';
   $('l-title').textContent = it.title || 'Untitled';
@@ -807,7 +931,7 @@ $('ss-form').addEventListener('submit', e => {
   ssToken = ssInput.value.trim();
   ssInput.value = '';
   store.set('sstoken', ssToken);
-  for (const s of SOURCES) if (s.needsToken) { s.down = false; s.why = ''; s.coolUntil = 0; s.pool = { s: [], p: [], w: [] }; }
+  for (const s of SOURCES) if (s.needsToken) { s.down = false; s.why = ''; s.coolUntil = 0; s.pool = emptyPool(); }
   renderToken();
   reset();
 });
