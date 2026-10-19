@@ -54,6 +54,9 @@ CANDID = re.compile(r'(sighting|spotted|out-and-about|out_and_about|seen-|leaves
                     r'paparazzi|candid|steps-out|stepping-out|heads-to|out-in-|in-her-car|in-his-car|parking)', re.I)
 EVENT = re.compile(r'(arrive|party|festival|fashion-week|runway|show|portrait|concert|benefit|screening|launch|ceremony|celebration|'
                    r'press-conference|junket|dinner|ball|opening|honors|tribute)', re.I)
+# News captions (people doing or saying things in the news) are neither stock nor celebrity.
+NEWS = re.compile(r'(describes|speaks|says|testif|president|minister|senator|police|shot|killed|protest|soldier|troops|court|trial|'
+                  r'campaign|election|refugee|victim|crash|fire-fighters|firefighters|rescue|funeral|memorial|press-briefing|news-conference)', re.I)
 YEAR = re.compile(r'(19[5-9]\d|20[0-2]\d)')
 
 def slug(orig):
@@ -75,7 +78,8 @@ def editorial(ts, orig):
     if STRONG_EVENT.search(sl): return 'e'
     if GETTY_CANDID.search(sl): return 'p'
     if EVENT.search(sl) or re.search(r'(attend|host|pose|perform)', sl, re.I): return 'e'
-    return None if YEAR.search(sl) else 's'
+    if YEAR.search(sl) or NEWS.search(sl): return None
+    return 's'
 
 # Article furniture: header graphics, promos, screenshots and collages rather than photographs of someone.
 FURNITURE = re.compile(r'(-ftr|-lead|_lead|livestream|-watch|cast-photos|promo|poster|trailer|screenshot|screen-shot|tweet|instagram|'
