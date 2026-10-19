@@ -21,7 +21,6 @@ jobs:
         run: python3 tools/harvest.py
         env:
           HARVEST_MINUTES: '30'
-          HARVEST_PROBE: '1'
       - name: Save what was found
         run: |
           git config user.name "github-actions[bot]"

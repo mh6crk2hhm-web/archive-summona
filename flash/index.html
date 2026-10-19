@@ -362,7 +362,7 @@ const HOSTS = [
   [/perezhilton/, 'Perez Hilton'], [/tmz/, 'TMZ'], [/thesuperficial/, 'The Superficial'], [/egotastic/, 'Egotastic'], [/hollywoodtuna/, 'Hollywood Tuna'],
   [/dlisted/, 'Dlisted'], [/celebuzz/, 'Celebuzz'], [/pacificcoastnews/, 'Pacific Coast News'], [/splashnews/, 'Splash News'],
   [/bauergriffin/, 'Bauer-Griffin'], [/fame-pictures/, 'FameFlynet'], [/hollywoodlife/, 'Hollywood Life'], [/socialitelife/, 'Socialite Life'],
-  [/style\.com/, 'Style.com'], [/celebitchy/, 'Celebitchy'], [/celebmafia/, 'CelebMafia'], [/celebzz/, 'Celebzz'], [/theplace2/, 'ThePlace'], [/celebsfirst/, 'Celebs First'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
+  [/style\.com/, 'Style.com'], [/firstview/, 'FirstView'], [/celebitchy/, 'Celebitchy'], [/celebmafia/, 'CelebMafia'], [/celebzz/, 'Celebzz'], [/theplace2/, 'ThePlace'], [/celebsfirst/, 'Celebs First'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
 ];
 const ZIMBIO = { bg: 'Bauer-Griffin', fp: 'FameFlynet', pc: 'Pacific Coast News', mp: 'Mavrix', x1: 'X17', gi: 'Getty Images', wi: 'WireImage', fm: 'FilmMagic', sp: 'Splash News', ak: 'AKM Images', ps: 'PacificCoastNews' };
 const hostLabel = u => {
@@ -386,6 +386,20 @@ function fromFileName(u) {
   if (letters < 6 || /^(article|img|image|dsc|p\d|photo slug|photo)\b/i.test(words) || /(?=[0-9a-f]*[a-f])(?=[0-9a-f]*\d)[0-9a-f]{10,}/i.test(words.replace(/ /g, ''))) return { title: '', artist };
   return { title: titleCase(words), artist };
 }
+// Runway archives keep designer and season in the folders, not the file name.
+const SEASON_TYPES = { RTW: 'Ready-to-Wear', CTR: 'Couture', MEN: 'Menswear', PF: 'Pre-Fall', RST: 'Resort' };
+const designerCase = s => titleCase(String(s).replace(/[_-]+/g, ' ').toLowerCase());
+function runwayCaption(u) {
+  let m = /fashionshows\/([FS])?(\d{4})(RTW|CTR|MEN|PF|RST)?\/([A-Z0-9_]+)\//i.exec(u);           // Style.com 2006-2012
+  if (m) return { title: designerCase(m[4]) + ', ' + [m[1] ? (m[1].toUpperCase() === 'F' ? 'Fall' : 'Spring') : '', m[2], SEASON_TYPES[(m[3] || '').toUpperCase()] || ''].filter(Boolean).join(' '), year: m[2] };
+  m = /fashionshows\/([FS])(\d{4})(RTW|CTR|MEN|PF|RST)-([A-Z0-9_]+)/i.exec(u);
+  if (m) return { title: designerCase(m[4]) + ', ' + (m[1].toUpperCase() === 'F' ? 'Fall ' : 'Spring ') + m[2] + ' ' + SEASON_TYPES[m[3].toUpperCase()], year: m[2] };
+  m = /fashion-shows\/([a-z0-9-]+)\/(?:[a-z-]+\/)?([a-z0-9-]+)\/collection\//i.exec(u);          // Style.com 2013-2016
+  if (m) return { title: designerCase(m[2]) + ', ' + designerCase(m[1]).replace('Ready To Wear', 'Ready-to-Wear').replace('Pre Fall', 'Pre-Fall'), year: (/(\d{4})/.exec(m[1]) || [])[1] || '' };
+  m = /firstview\.com(?::80)?\/([A-Za-z]+)_shows\/([A-Za-z]*?)(spring|fall|summer|winter|autumn)?(\d{4})[^/]*\/([^/]+)\//i.exec(u);   // FirstView
+  if (m) return { title: designerCase(m[5]) + ', ' + [m[1].replace(/_/g, ' '), m[3] ? designerCase(m[3]) : '', m[4]].filter(Boolean).join(' '), year: m[4] };
+  return null;
+}
 function wayback(kind, label) {
   return async () => {
     if (!WB[kind]) {
@@ -396,13 +410,10 @@ function wayback(kind, label) {
     if (!n) return [];
     const rows = await getJSON('../data/wb-' + kind + '-' + String(rand(0, n - 1)).padStart(2, '0') + '.json?b=' + encodeURIComponent(WB[kind].built || ''), 25000);
     return sample(rows, 12).map(([ts, orig]) => {
-      const show = /\/([FS])(\d{4})(RTW|CTR|MEN|PF|RST)-([A-Z0-9_]+)/i.exec(orig);
-      const { title, artist } = show
-        ? { title: titleCase(show[4].replace(/_/g, ' ').toLowerCase()) + ', ' + (show[1].toUpperCase() === 'F' ? 'Fall ' : 'Spring ') + show[2] + ' ' +
-              ({ RTW: 'Ready-to-Wear', CTR: 'Couture', MEN: 'Menswear', PF: 'Pre-Fall', RST: 'Resort' })[show[3].toUpperCase()], artist: '' }
-        : fromFileName(orig);
+      const show = runwayCaption(orig);
+      const { title, artist } = show ? { title: show.title, artist: '' } : fromFileName(orig);
       const host = hostLabel(orig);
-      const year = show ? show[2] : kind === 'x' ? ((/\/(?:f|i)\/((?:19|20)\d\d)\//.exec(orig) || [])[1] || ts.slice(0, 4)) : ts.slice(0, 4);
+      const year = show ? show.year : kind === 'x' ? ((/\/(?:f|i)\/((?:19|20)\d\d)\//.exec(orig) || [])[1] || ts.slice(0, 4)) : ts.slice(0, 4);
       const mark = /Getty|WireImage|FilmMagic|Shutterstock|Rex/.test(host) && !/Zimbio/.test(host) ? ' · watermarked preview' : '';
       return {
         kind, src: ['https://web.archive.org/web/' + ts + 'im_/' + orig], min: 240,

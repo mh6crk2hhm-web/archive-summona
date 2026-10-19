@@ -164,17 +164,27 @@ def ss_prefix():
     kind = random.choice(['stock-photo-'] * 4 + ['stock-vector-'])
     return 'shutterstock', 'image.shutterstock.com', 'image.shutterstock.com/z/' + kind + random.choice(WORDS)
 
-# Style.com, Conde Nast's runway site 2000-2015: one folder per show, named season + designer (F2009RTW-CHANEL).
+# Runway archives, laid out as the index showed them:
+#   www.style.com/slideshows/2010/fashionshows/2011PF/CHANEL/RUNWAY/09m.jpg            (about 2006-2012)
+#   media.style.com/image/fashion-shows/spring-2015-ready-to-wear/chanel/collection/... (about 2013-2016)
+#   www.firstview.com/Australia_shows/Aspring2000_2001/AKIRA_ISOGAWA/00034.L.JPG         (2000s)
 def style_prefix():
-    y = random.randint(2000, 2015)
-    season = random.choice('FS') + str(y) + random.choice(['RTW', 'RTW', 'RTW', 'CTR', 'MEN'])
-    letter = random.choice(string.ascii_uppercase)
-    if random.random() < 0.5:
-        return 'style.com', 'media.style.com', 'media.style.com/image/fashionshows/%s-%s' % (season, letter)
-    return 'style.com', 'www.style.com', 'www.style.com/slideshows/%d/fashionshows/%s-%s' % (y, season, letter)
+    r = random.random()
+    if r < 0.45:
+        y = random.randint(2006, 2012)
+        code = random.choice(['F%dRTW' % y, 'S%dRTW' % (y + 1), 'S%dRTW' % y, 'F%dCTR' % y, 'S%dCTR' % y, 'F%dMEN' % y,
+                              'S%dMEN' % (y + 1), '%dPF' % (y + 1), '%dRST' % (y + 1), '%dRST' % y])
+        return 'style.com', 'www.style.com', 'www.style.com/slideshows/%d/fashionshows/%s/%s' % (y, code, random.choice(string.ascii_uppercase))
+    if r < 0.8:
+        y = random.randint(2013, 2016)
+        season = random.choice(['spring-%d-ready-to-wear', 'fall-%d-ready-to-wear', 'spring-%d-ready-to-wear', 'fall-%d-ready-to-wear',
+                                'resort-%d', 'pre-fall-%d', 'spring-%d-couture', 'fall-%d-couture', 'spring-%d-menswear', 'fall-%d-menswear']) % y
+        return 'style.com', 'media.style.com', 'media.style.com/image/fashion-shows/%s/%s' % (season, random.choice(LOWER))
+    return 'firstview', 'www.firstview.com', 'www.firstview.com/' + random.choice(string.ascii_uppercase) + random.choice(LOWER)
 
 def runway(ts, orig):
-    if re.search(r'(thumb|\d+t\.jpg|_t\.|/t/|sprite|logo)', orig, re.I): return None
+    if re.search(r'(thumb|\d+t\.jpg|_t\.|/t/|sprite|logo|/blogs?/|/stylefile/|contributors|products|defaultimages)', orig, re.I): return None
+    if 'style.com' in orig and not re.search(r'/fashion-?shows/', orig, re.I): return None
     return 'f'
 
 GETTY_FASHION = ['a-model-walks-the-runway-', 'model-walks-the-runway-', 'models-walk-the-runway-', 'a-model-walks-the-runway-at-the-',
@@ -215,7 +225,7 @@ def sorter_for(orig):
     if 'gettyimages' in h: return editorial
     if 'shutterstock' in h: return stock
     if 'deviantart' in h: return deviantart
-    if 'style.com' in h: return runway
+    if 'style.com' in h or 'firstview' in h: return runway
     return gossip
 
 def key(orig):
