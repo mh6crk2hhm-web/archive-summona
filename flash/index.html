@@ -421,9 +421,7 @@ function wayback(kind, label) {
       const year = show ? show.year : kind === 'x' ? ((/\/(?:f|i)\/((?:19|20)\d\d)\//.exec(orig) || [])[1] || ts.slice(0, 4)) : ts.slice(0, 4);
       const mark = /Getty|WireImage|FilmMagic|Shutterstock|Rex/.test(host) && !/Zimbio/.test(host) ? ' · watermarked preview' : '';
       return {
-        // Style.com kept each look at several sizes (001f, 001m, 001fullscreen): ask for the biggest first.
-        kind, src: [/style\.com\/slideshows\/.*\/\d+(f|m)\.jpg$/i.test(orig) ? 'https://web.archive.org/web/' + ts + 'im_/' + orig.replace(/(\d+)(f|m)\.jpg$/i, '$1fullscreen.jpg') : null,
-          'https://web.archive.org/web/' + ts + 'im_/' + orig].filter(Boolean), min: 240,
+        kind, src: ['https://web.archive.org/web/' + ts + 'im_/' + orig], min: 240,
         title, artist, date: year, subject: title ? subjectOf(title) : '',
         medium: label + ' · ' + host + mark + ' · archived ' + ts.slice(0, 4),
         source: host, credit: host + ', via the Wayback Machine',

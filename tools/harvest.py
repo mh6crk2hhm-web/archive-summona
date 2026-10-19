@@ -185,7 +185,9 @@ def style_prefix():
     if r < 0.4:
         pre = 'www.style.com/slideshows/%d/fashionshows/%s' % (random.randint(2010, 2012), random.choice(['', '', 'F', 'S', '2']))
         base = len('www.style.com/slideshows/2010/fashionshows/')
-        return 'style.com', 'www.style.com', pre, 'urlkey:%d' % (surt_len('www.style.com/slideshows/2010/fashionshows/') + 18)
+        # half the time, only looks the archive kept at full-screen size (about 640 x 960)
+        big = ['original:.*fullscreen\\.jpg$'] if random.random() < 0.5 else []
+        return 'style.com', 'www.style.com', pre, 'urlkey:%d' % (surt_len('www.style.com/slideshows/2010/fashionshows/') + 18), big
     if r < 0.75:
         pre = 'media.style.com/image/fashion-shows/' + random.choice(LOWER)
         return 'style.com', 'media.style.com', pre, 'urlkey:%d' % (surt_len('media.style.com/image/fashion-shows/') + 42)
@@ -222,8 +224,9 @@ def one_query():
     got = gen()
     group, host, prefix = got[:3]
     collapse = got[3] if len(got) > 3 else 'urlkey'
+    extra = got[4] if len(got) > 4 else []
     text = cdx({'url': prefix, 'matchType': 'prefix', 'fl': 'timestamp,original', 'collapse': collapse, 'limit': '250',
-                'filter': ['statuscode:200', 'mimetype:image/(jpeg|png|gif)', 'length:' + size]})
+                'filter': ['statuscode:200', 'mimetype:image/(jpeg|png|gif)', 'length:' + size] + extra})
     out = []
     for line in (text or '').splitlines():
         parts = line.split(' ', 1)
