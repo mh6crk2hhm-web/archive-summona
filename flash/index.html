@@ -155,6 +155,16 @@ button{cursor:pointer}
 .flash.pop{animation:pop .42s ease-out}
 @keyframes pop{0%{opacity:.5}100%{opacity:0}}
 @media (prefers-reduced-motion:reduce){.flash.pop{animation:none}}
+
+/* ---------- Shutterstock token ---------- */
+.token{display:grid;gap:6px;margin:10px 0 2px;padding:12px;border:1px solid var(--line);border-radius:2px}
+.token b{font-weight:600}
+.token small{color:var(--muted);font-size:12.5px}
+.token small a{color:inherit}
+.token .row{display:flex;gap:8px}
+.token input{flex:1;min-width:0;font:400 13px/1.2 var(--mono);padding:7px 9px;border:1px solid var(--line);border-radius:2px;background:transparent;color:var(--ink)}
+.token input:focus{border-color:var(--ink);outline:none}
+.token .stat{font:400 11px/1.4 var(--mono);letter-spacing:.03em;text-transform:uppercase;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -201,7 +211,13 @@ button{cursor:pointer}
 <aside class="drawer" id="drawer-sources" aria-label="Sources" hidden>
   <header><h2>Sources</h2><button type="button" class="btn" data-close>Close</button></header>
   <div class="body">
-    <p class="hint">Untick a source to leave it out. A source that doesn't answer is skipped for a minute and tried again. Everything here is free to use under the licence shown on the picture; check the record before you publish.</p>
+    <p class="hint">Untick a source to leave it out. A source that doesn't answer is skipped for a minute and tried again. Everything here is free to use under the licence shown on the picture; check the record before you publish. Shutterstock pictures are watermarked previews, not licensed.</p>
+    <form class="token" id="ss-form" autocomplete="off">
+      <label for="ss-token"><b>Shutterstock token</b></label>
+      <small>Shutterstock’s three sources need your own free developer token. Make an account at <a href="https://www.shutterstock.com/developers" target="_blank" rel="noopener">shutterstock.com/developers</a>, create an app, generate a token, and paste it here. It stays in this browser only.</small>
+      <div class="row"><input id="ss-token" type="password" spellcheck="false" placeholder="Paste token"><button type="submit" class="btn" id="ss-save">Save</button></div>
+      <span class="stat" id="ss-stat"></span>
+    </form>
     <div id="src-list"></div>
   </div>
 </aside>
@@ -327,6 +343,48 @@ function locPerson(c) {
 
 const totals = { picsumPages: 34 };
 
+/* ================= Shutterstock, through its developer API with the viewer's own token ================= */
+// The free developer plan allows about 100 requests an hour, so each call fetches 20 and the pool keeps them all.
+let ssToken = String(store.get('sstoken', '') || '');
+const SS_STOCK_Q = [
+  'business meeting', 'handshake', 'woman laughing salad', 'office team high five', 'happy family beach', 'doctor smiling',
+  'laptop coffee shop', 'fitness woman', 'businessman jumping', 'call center headset', 'couple shopping bags', 'teamwork puzzle',
+  'senior couple smiling', 'student library', 'thumbs up', 'woman yoga sunrise', 'man pointing', 'diverse group celebrating',
+  'chef kitchen', 'cocktail party', 'night city skyline', 'model studio portrait', 'surprised face', 'virtual reality headset'
+];
+const SS_PAP_Q = [
+  'red carpet', 'premiere', 'arrivals', 'paparazzi', 'celebrity sighting', 'spotted', 'street style', 'fashion week',
+  'after party', 'gala', 'film festival', 'photocall', 'out and about', 'leaving restaurant', 'airport arrival', 'backstage'
+];
+const SS_OLD_Q = ['premiere', 'arrivals', 'celebrity', 'film festival', 'party', 'concert', 'nightclub', 'fashion show', 'photocall', 'airport'];
+const pad = n => String(n).padStart(2, '0');
+
+async function ssGet(path, ms = 14000) {
+  if (!ssToken) throw Object.assign(new Error('no token'), { noToken: true });
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch('https://api.shutterstock.com/v2/' + path, { headers: { Authorization: 'Bearer ' + ssToken }, signal: ctl.signal });
+    if (r.status === 401) throw Object.assign(new Error('refused'), { why: 'Shutterstock refused the token' });
+    if (r.status === 403) throw Object.assign(new Error('refused'), { why: 'not included in your Shutterstock plan' });
+    if (r.status === 429) throw Object.assign(new Error('limit'), { why: 'hourly Shutterstock limit reached' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+const ssEditorial = (x, kind) => {
+  const a = x.assets || {};
+  const big = a.watermark_1500 || a.original || a.watermark_450;
+  if (!big || !big.url) return null;
+  return {
+    kind, src: [big.url], preview: (a.watermark_450 && a.watermark_450.url) || undefined, full: big.url,
+    title: clip(x.title || x.description, 140), artist: clip(x.byline, 80), date: tidyDate(x.date_taken),
+    medium: 'Editorial photograph · watermarked preview · Shutterstock ' + x.id,
+    link: 'https://www.shutterstock.com/editorial/image-editorial/' + x.id
+  };
+};
+const ssMonth = (from, to) => { const y = rand(from, to), m = rand(1, 12); return '&date_start=' + y + '-' + pad(m) + '-01&date_end=' + y + '-' + pad(m) + '-28'; };
+
 /* ================= sources ================= */
 const SOURCES = [
   /* ---- stock ---- */
@@ -372,7 +430,36 @@ const SOURCES = [
     refill: commons(['WOCinTech filew:>1500'], 's', 'Stock photograph')
   },
 
+  {
+    id: 'ss', name: 'Shutterstock', full: 'Shutterstock (watermarked preview)', kinds: ['s'], weight: 2.5, needsToken: true,
+    note: 'Live, with your token. Random picks from Shutterstock’s stock library across the classic stock subjects, watermarks and all, at up to 1,000 px.',
+    keep: 20,
+    async refill() {
+      const d = await ssGet('images/search?image_type=photo&sort=random&per_page=20&view=full&query=' + encodeURIComponent(pick(SS_STOCK_Q)));
+      return (d.data || []).map(x => {
+        const a = x.assets || {};
+        const big = a.preview_1500 || a.preview_1000 || a.preview;
+        if (!big || !big.url) return null;
+        return {
+          kind: 's', src: [big.url, a.preview && a.preview.url].filter(Boolean), preview: (a.preview && a.preview.url) || undefined, full: big.url,
+          title: clip(x.description, 140), artist: x.contributor && x.contributor.id ? 'Shutterstock contributor ' + x.contributor.id : '', date: '',
+          medium: 'Stock photograph · watermarked preview · Shutterstock ' + x.id,
+          link: 'https://www.shutterstock.com/image-photo/' + x.id
+        };
+      }).filter(Boolean);
+    }
+  },
+
   /* ---- paparazzi ---- */
+  {
+    id: 'ssed', name: 'Shutterstock Editorial', full: 'Shutterstock Editorial (watermarked preview)', kinds: ['p'], weight: 2.5, needsToken: true,
+    note: 'Live, with your token. Red carpets, sightings and street style from Shutterstock’s editorial wires (Rex Features and others), 2000 to now, at 1,500 px. Your free plan may not include editorial; if so this says so below.',
+    keep: 20,
+    async refill() {
+      const d = await ssGet('editorial/images/search?country=USA&sort=newest&per_page=20&query=' + encodeURIComponent(pick(SS_PAP_Q)) + ssMonth(2000, new Date().getFullYear() - 1));
+      return (d.data || []).map(x => ssEditorial(x, 'p')).filter(Boolean);
+    }
+  },
   {
     id: 'skidmore', name: 'Gage Skidmore', full: 'Gage Skidmore, via Wikimedia Commons', kinds: ['p'], weight: 2,
     note: 'Live. The most-used celebrity photographer on Wikipedia: Comic-Con panels, rallies, junkets and press lines since 2009.',
@@ -401,6 +488,15 @@ const SOURCES = [
   },
 
   /* ---- vintage press ---- */
+  {
+    id: 'ssarch', name: 'Shutterstock Editorial archive', full: 'Shutterstock Editorial archive (watermarked preview)', kinds: ['w'], weight: 1.5, needsToken: true,
+    note: 'Live, with your token. Shutterstock’s editorial archive from 1960 to 1999: premieres, nightclubs, airports, concerts.',
+    keep: 20,
+    async refill() {
+      const d = await ssGet('editorial/images/search?country=USA&sort=newest&per_page=20&query=' + encodeURIComponent(pick(SS_OLD_Q)) + ssMonth(1960, 1999));
+      return (d.data || []).map(x => ssEditorial(x, 'w')).filter(Boolean);
+    }
+  },
   {
     id: 'anefo', name: 'Anefo, Netherlands', full: 'Anefo / Nationaal Archief, via Wikimedia Commons', kinds: ['w'], weight: 2,
     note: 'Live. The Dutch press agency’s archive, 1945–1989: stars arriving at Schiphol, the Beatles and the Stones, Grand Gala du Disque. Released CC0 by the Nationaal Archief.',
@@ -464,7 +560,7 @@ const current = () => hist[at];
 const fits = (s, m) => m === 'all' || s.kinds.includes(m);
 function chooseSource(m, skip) {
   const now = Date.now();
-  let list = SOURCES.filter(s => enabled[s.id] && !skip.has(s.id) && fits(s, m));
+  let list = SOURCES.filter(s => enabled[s.id] && !skip.has(s.id) && fits(s, m) && (!s.needsToken || ssToken));
   const awake = list.filter(s => s.coolUntil <= now);
   if (awake.length) list = awake;
   if (!list.length) return null;
@@ -487,7 +583,8 @@ async function draw(m, onTry) {
           got = await Promise.race([s.refill(kind), new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 25000))]);
         } catch (e) {
           // the source itself didn't answer: rest it and move on
-          s.down = true; s.coolUntil = Date.now() + 60000; skip.add(s.id); renderSources();
+          // a refused token or an exhausted hourly limit won't fix itself in a minute, so those rest for ten
+          s.down = true; s.why = e.why || ''; s.coolUntil = Date.now() + (e.why ? 600000 : 60000); skip.add(s.id); renderSources();
           continue;
         }
         got = shuffle((got || []).filter(it => it && it.src && it.src.length && it.link && !seen.has(it.link)));
@@ -642,7 +739,9 @@ function renderSources() {
   }
   SOURCES.forEach(s => {
     const kinds = s.kinds.map(k => KIND[k]).join(' + ');
-    const state = s.down && s.coolUntil > Date.now() ? 'no answer just now' : s.shown ? s.shown + ' summoned' : 'not drawn yet';
+    const state = s.needsToken && !ssToken ? 'add your token above'
+      : s.down && s.coolUntil > Date.now() ? (s.why || 'no answer just now')
+      : s.shown ? s.shown + ' summoned' : 'not drawn yet';
     $('stat-' + s.id).textContent = kinds + ' · ' + state;
   });
 }
@@ -696,7 +795,25 @@ document.addEventListener('keydown', e => {
   else if (e.key === 'k' || e.key === 'K') toggleKeep();
 });
 
+/* Shutterstock token: kept in this browser only, never in the page itself. */
+const ssInput = $('ss-token'), ssStat = $('ss-stat'), ssSave = $('ss-save');
+function renderToken() {
+  ssStat.textContent = ssToken ? 'Saved in this browser · ends …' + ssToken.slice(-4) : 'No token: the Shutterstock sources are skipped';
+  ssSave.textContent = ssToken && !ssInput.value ? 'Clear' : 'Save';
+}
+ssInput.addEventListener('input', renderToken);
+$('ss-form').addEventListener('submit', e => {
+  e.preventDefault();
+  ssToken = ssInput.value.trim();
+  ssInput.value = '';
+  store.set('sstoken', ssToken);
+  for (const s of SOURCES) if (s.needsToken) { s.down = false; s.why = ''; s.coolUntil = 0; s.pool = { s: [], p: [], w: [] }; }
+  renderToken();
+  reset();
+});
+
 setMode(mode);
+renderToken();
 renderSources();
 renderKept();
 summon();
