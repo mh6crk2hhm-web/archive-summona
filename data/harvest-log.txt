@@ -1,29 +1,29 @@
-50 queries; kept so far: s 2567, p 14, e 451, x 1049
-kind s: 2567 new this run, 11067 in total
-kind p: 14 new this run, 286 in total
-kind e: 451 new this run, 922 in total
-kind x: 1049 new this run, 1862 in total
-  image.shutterstock.com                  4 queries, kept   1548
-  media.gettyimages.com                   8 queries, kept   1482
-  fc06.deviantart.net                     3 queries, kept    710
-  fc07.deviantart.net                     3 queries, kept    336
-  fc02.deviantart.net                     3 queries, kept      2
-  www.perezhilton.com                     3 queries, kept      2
-  fc09.deviantart.net                     1 queries, kept      1
-  www.idontlikeyouinthatway.com           2 queries, kept      0
-  www.dlisted.com                         2 queries, kept      0
-  perezhilton.com                         3 queries, kept      0
-  www.popsugar.com                        1 queries, kept      0
+50 queries; kept so far: s 476, p 756, e 150, x 0
+kind s: 660 new this run, 11432 in total
+kind p: 866 new this run, 1142 in total
+kind e: 231 new this run, 1150 in total
+kind x: 0 new this run, 1862 in total
+  www2.pictures.zimbio.com                4 queries, kept    488
+  image.shutterstock.com                  8 queries, kept    476
+  www1.pictures.zimbio.com                8 queries, kept    249
+  media.gettyimages.com                   3 queries, kept    228
+  www.hawtcelebs.com                      7 queries, kept    168
+  celebmafia.com                          1 queries, kept    132
+  hollywoodlife.com                       2 queries, kept     15
+  www.celebzz.com                         3 queries, kept      1
+  www3.pictures.zimbio.com                2 queries, kept      0
+  www4.pictures.zimbio.com                4 queries, kept      0
+  www1.pictures.stylebistro.com           2 queries, kept      0
+  media.gettyimages.com (sightings)      14 queries, kept      0
+  www.theplace2.ru                        2 queries, kept      0
+  www.x17online.com                       2 queries, kept      0
   www.thesuperficial.com                  1 queries, kept      0
-  www.x17online.com                       3 queries, kept      0
-  www.celebuzz.com                        1 queries, kept      0
-  www.gotceleb.com                        1 queries, kept      0
-  pagesix.com                             2 queries, kept      0
-  radaronline.com                         1 queries, kept      0
-  fc03.deviantart.net                     3 queries, kept      0
-  www.celebslam.com                       1 queries, kept      0
-  www.hollywoodtuna.com                   1 queries, kept      0
-  fc04.deviantart.net                     1 queries, kept      0
-  fc01.deviantart.net                     1 queries, kept      0
+  fc03.deviantart.net                     2 queries, kept      0
+  www4.pictures.stylebistro.com           1 queries, kept      0
+  justjaredjr.buzznet.com                 1 queries, kept      0
+  www1.pictures.livingly.com              2 queries, kept      0
   cdn.justjared.com                       1 queries, kept      0
-  justjared.buzznet.com                   1 queries, kept      0
+  www.popsugar.com                        1 queries, kept      0
+  fc01.deviantart.net                     2 queries, kept      0
+  perezhilton.com                         1 queries, kept      0
+  www2.pictures.stylebistro.com           1 queries, kept      0
