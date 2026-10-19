@@ -162,7 +162,6 @@ button{cursor:pointer}
   .seg button+button{border-left:1px solid var(--ink)}
   .seg button:nth-child(4n+1){border-left:0}
   .seg button:nth-child(n+5){border-top:1px solid var(--ink)}
-  .seg button:last-child{grid-column:span 2}
 }
 
 /* ---------- Shutterstock token ---------- */
@@ -186,6 +185,7 @@ button{cursor:pointer}
     <button type="button" role="radio" data-mode="p" aria-checked="false">Paparazzi</button>
     <button type="button" role="radio" data-mode="e" aria-checked="false">Red carpet</button>
     <button type="button" role="radio" data-mode="f" aria-checked="false">Fashion</button>
+    <button type="button" role="radio" data-mode="o" aria-checked="false">Product</button>
     <button type="button" role="radio" data-mode="w" aria-checked="false">Vintage press</button>
     <button type="button" role="radio" data-mode="x" aria-checked="false">Early web</button>
   </div>
@@ -362,7 +362,7 @@ const HOSTS = [
   [/perezhilton/, 'Perez Hilton'], [/tmz/, 'TMZ'], [/thesuperficial/, 'The Superficial'], [/egotastic/, 'Egotastic'], [/hollywoodtuna/, 'Hollywood Tuna'],
   [/dlisted/, 'Dlisted'], [/celebuzz/, 'Celebuzz'], [/pacificcoastnews/, 'Pacific Coast News'], [/splashnews/, 'Splash News'],
   [/bauergriffin/, 'Bauer-Griffin'], [/fame-pictures/, 'FameFlynet'], [/hollywoodlife/, 'Hollywood Life'], [/socialitelife/, 'Socialite Life'],
-  [/style\.com/, 'Style.com'], [/firstview/, 'FirstView'], [/celebitchy/, 'Celebitchy'], [/celebmafia/, 'CelebMafia'], [/celebzz/, 'Celebzz'], [/theplace2/, 'ThePlace'], [/celebsfirst/, 'Celebs First'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
+  [/amazon/, 'Amazon'], [/ebayimg/, 'eBay'], [/ikea\.com/, 'IKEA'], [/images\.apple\.com/, 'Apple'], [/style\.com/, 'Style.com'], [/firstview/, 'FirstView'], [/celebitchy/, 'Celebitchy'], [/celebmafia/, 'CelebMafia'], [/celebzz/, 'Celebzz'], [/theplace2/, 'ThePlace'], [/celebsfirst/, 'Celebs First'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
 ];
 const ZIMBIO = { bg: 'Bauer-Griffin', fp: 'FameFlynet', pc: 'Pacific Coast News', mp: 'Mavrix', x1: 'X17', gi: 'Getty Images', wi: 'WireImage', fm: 'FilmMagic', sp: 'Splash News', ak: 'AKM Images', ps: 'PacificCoastNews' };
 const hostLabel = u => {
@@ -376,7 +376,7 @@ const titleCase = s => s === s.toLowerCase() ? s.replace(/\b([a-z])/g, c => c.to
 function fromFileName(u) {
   let f = decodeURIComponent(String(u).split('?')[0].replace(/\/+$/, '').split('/').pop() || '');
   try { f = decodeURIComponent(f); } catch (e) { /* already plain */ }
-  f = f.replace(/\.(jpe?g|png|gif)$/i, '').replace(/\+[A-Za-z0-9_-]{8,14}$/, '').replace(/-picture-id\d+$/i, '').replace(/^(stock-(photo|vector)-)/i, '')
+  f = f.replace(/\.(jpe?g|png|gif)$/i, '').replace(/__\d+_[a-z]{2}\d+(_s\d)?$/i, '').replace(/^s-l\d+$/i, '').replace(/^[\w%+-]{8,14}\._.*$/, '').replace(/^[\w%+-]{9,12}$/, m => /\d/.test(m) && /[A-Z]/.test(m) ? '' : m).replace(/\+[A-Za-z0-9_-]{8,14}$/, '').replace(/-picture-id\d+$/i, '').replace(/^(stock-(photo|vector)-)/i, '')
     .replace(/[-_](\d{2,4}x\d{2,4}|260nw|\d{5,})$/i, '').replace(/[-_]d[0-9a-z]{4,7}$/i, '').replace(/[-_]\d{1,3}$/, '');
   let artist = '';
   const by = /^(.*)_by_([\w-]+)$/i.exec(f);
@@ -499,6 +499,7 @@ const SS_PAP_Q = [
 ];
 const SS_CARPET_Q = ['red carpet', 'premiere', 'arrivals', 'after party', 'gala', 'photocall', 'fashion week front row', 'awards'];
 const SS_FASHION_Q = ['runway', 'catwalk', 'fashion show', 'street style', 'fashion week front row', 'backstage fashion week', 'couture show', 'menswear show'];
+const SS_PRODUCT_Q = ['perfume bottle', 'sneaker', 'wristwatch', 'handbag', 'headphones', 'lipstick', 'sunglasses', 'soda can', 'chair', 'lamp', 'camera', 'phone', 'toaster', 'shoe', 'jewelry', 'cereal box', 'bottle', 'cosmetics', 'skincare', 'packaging'];
 const SS_OLD_Q = ['out and about', 'spotted', 'paparazzi', 'leaving restaurant', 'airport', 'nightclub', 'shopping', 'on holiday', 'premiere', 'arrivals'];
 const pad = n => String(n).padStart(2, '0');
 
@@ -696,6 +697,38 @@ const SOURCES = [
       '"Journal des Dames et des Modes" filew:>1200', '"La Mode illustrée" filew:>1200'], 'f', 'Fashion picture')
   },
 
+  /* ---- product ---- */
+  {
+    id: 'wbo', name: 'Shop images, archived', full: 'Retail and stock product shots, via the Wayback Machine', kinds: ['o'], weight: 4,
+    note: 'Live from a harvested index. Amazon’s white-background product shots, eBay sellers’ own listing photos, IKEA catalog shots, Apple product images from the 2000s and 2010s, and Getty and Shutterstock “isolated on white” studio shots, as archived by the Wayback Machine.',
+    keep: 12,
+    refill: wayback('o', 'Product photo')
+  },
+  {
+    id: 'ssproduct', name: 'Shutterstock products', full: 'Shutterstock (watermarked preview)', kinds: ['o'], weight: 2, needsToken: true,
+    note: 'Live, with your token. Studio product shots on white from Shutterstock’s library, watermarks and all.',
+    keep: 20,
+    async refill() {
+      const d = await ssGet('images/search?image_type=photo&sort=random&per_page=20&view=full&query=' + encodeURIComponent(pick(SS_PRODUCT_Q) + ' isolated on white'));
+      return (d.data || []).map(x => {
+        const a = x.assets || {};
+        const big = a.preview_1500 || a.preview_1000 || a.preview;
+        if (!big || !big.url) return null;
+        return {
+          kind: 'o', src: [big.url, a.preview && a.preview.url].filter(Boolean), preview: (a.preview && a.preview.url) || undefined, full: big.url,
+          title: clip(x.description, 140), artist: '', date: '', medium: 'Product photograph · watermarked preview · Shutterstock ' + x.id,
+          link: 'https://www.shutterstock.com/image-photo/' + x.id
+        };
+      }).filter(Boolean);
+    }
+  },
+  {
+    id: 'cproduct', name: 'Product photography on Commons', full: 'Product photography, via Wikimedia Commons', kinds: ['o'], weight: 1,
+    note: 'Live. Product and still-life photographs released under Creative Commons: objects on white, packshots, studio still lifes.',
+    refill: commons(['"product photography" filew:>1500', '"isolated on white" filew:>1500', '"white background" product filew:>1500', 'packshot filew:>1500',
+      '"studio shot" object filew:>1500', '"still life" product photography filew:>1500'], 'o', 'Product photograph')
+  },
+
   /* ---- vintage press ---- */
   {
     id: 'ssarch', name: 'Shutterstock Editorial archive', full: 'Shutterstock Editorial archive (watermarked preview)', kinds: ['w'], weight: 1.5, needsToken: true,
@@ -773,13 +806,13 @@ const SOURCES = [
       'x', 'DeviantArt post', { mimes: /^image\/(jpeg|png|gif)$/, before: 2014, min: 400, limit: 40 })
   }
 ];
-const KIND = { s: 'Stock', p: 'Paparazzi', e: 'Red carpet', f: 'Fashion', w: 'Vintage press', x: 'Early web' };
-const emptyPool = () => ({ s: [], p: [], e: [], f: [], w: [], x: [] });
+const KIND = { s: 'Stock', p: 'Paparazzi', e: 'Red carpet', f: 'Fashion', o: 'Product', w: 'Vintage press', x: 'Early web' };
+const emptyPool = () => ({ s: [], p: [], e: [], f: [], o: [], w: [], x: [] });
 for (const s of SOURCES) { s.pool = emptyPool(); s.shown = 0; s.misses = 0; s.imgFails = 0; s.drawn = 0; s.coolUntil = 0; s.down = false; }
 
 /* ================= state ================= */
 let mode = store.get('mode', 'all');
-if (!['all', 's', 'p', 'e', 'f', 'w', 'x'].includes(mode)) mode = 'all';
+if (!['all', 's', 'p', 'e', 'f', 'o', 'w', 'x'].includes(mode)) mode = 'all';
 let savedOff = store.get('off', []);
 if (!Array.isArray(savedOff)) savedOff = [];
 const enabled = Object.fromEntries(SOURCES.map(s => [s.id, !savedOff.includes(s.id)]));

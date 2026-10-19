@@ -70,11 +70,16 @@ SPORT = re.compile(r'(match|league|football|soccer|nba|nfl|mlb|nhl|race|racing|c
                    r'in-action|during-the|tries-to|scores|player|team|stadium|quarterback|pitcher|goalkeeper|playoff|tournament|'
                    r'wrestl|boxing|ufc|marathon|rally|porsche|ferrari|formula|fifa|pitch|livestream)', re.I)
 
+# Studio product shots: the object alone, usually on white.
+PRODUCT = re.compile(r'(isolated|on-white|white-background|white-backdrop|packshot|pack-shot|product-shot|product-photo|studio-shot|'
+                     r'cut-?out|on-a-white|against-white|still-life)', re.I)
+
 def editorial(ts, orig):
     if JUNK.search(orig): return None
     sl = slug(orig)
     if SPORT.search(sl): return None
     if FASHION.search(sl): return 'f'
+    if PRODUCT.search(sl) and not YEAR.search(sl): return 'o'
     if STRONG_EVENT.search(sl): return 'e'
     if GETTY_CANDID.search(sl): return 'p'
     if EVENT.search(sl) or re.search(r'(attend|host|pose|perform)', sl, re.I): return 'e'
@@ -95,7 +100,12 @@ def gossip(ts, orig):
     return 'p'
 
 def stock(ts, orig):
-    return None if JUNK.search(orig) else 's'
+    if JUNK.search(orig): return None
+    return 'o' if PRODUCT.search(slug(orig)) else 's'
+
+def product(ts, orig):
+    if re.search(r'(sprite|logo|icon|banner|button|nav|bg_|background_|hero_bg|_thumb|/thumbs?/|spacer|badge|promo|header)', orig, re.I): return None
+    return 'o'
 
 DA_YEAR = re.compile(r'/(?:f|i)/((?:19|20)\d\d)/')
 DA_JUNK = re.compile(r'(profile_?pic|avatar|icon|(^|/)id_|_id_|_id\.|stamp|banner|journal|signature|button|_base|f2u|free_to_use|'
@@ -207,6 +217,31 @@ def getty_fashion_prefix():
     if start.endswith('-') and random.random() < 0.6: start += random.choice(LOWER)
     return 'getty', 'media.gettyimages.com (fashion)', 'media.gettyimages.com/photos/' + start
 
+# Retail image servers: the product itself, the way shops shot it (and eBay sellers on their carpets).
+B62 = string.ascii_letters + string.digits
+def amazon_prefix():
+    host = random.choice(['images-na.ssl-images-amazon.com', 'ecx.images-amazon.com', 'm.media-amazon.com', 'images-na.ssl-images-amazon.com'])
+    return 'amazon', host, '%s/images/I/%s' % (host, random.choice('4567' * 3 + '1389') + random.choice(B62) + random.choice(B62))
+
+def ebay_prefix():
+    return 'ebay', 'i.ebayimg.com', 'i.ebayimg.com/images/g/' + random.choice(B62) + random.choice(B62), 'urlkey', ['original:.*s-l(1600|1200|1000|800|640|500)\\.jpg']
+
+def ikea_prefix():
+    region = random.choice(['us/en', 'us/en', 'gb/en', 'ca/en', 'au/en'])
+    return 'ikea', 'www.ikea.com', 'www.ikea.com/%s/images/products/%s' % (region, random.choice(STARTS + list(LOWER)))
+
+def apple_prefix():
+    pre = 'images.apple.com/' + random.choice(['ipod', 'imac', 'iphone', 'ipad', 'macbook', 'macbookpro', 'macbookair', 'macpro', 'macmini',
+                                               'displays', 'airport', 'iwork', 'ilife', 'accessories', 'watch', 'appletv', 'home', 'imac'])
+    return 'apple', 'images.apple.com', pre, 'urlkey:%d' % (surt_len(pre) + 30)
+
+def product_stock_prefix():
+    if random.random() < 0.5:
+        return 'shutterstock', 'image.shutterstock.com (product)', 'image.shutterstock.com/z/stock-photo-' + random.choice(WORDS), 'urlkey', \
+               ['original:.*(isolated|white-background|on-white|packshot|product).*']
+    return 'getty', 'media.gettyimages.com (product)', 'media.gettyimages.com/photos/' + random.choice(STARTS), 'urlkey', \
+           ['original:.*(isolated|white-background|on-white|packshot|studio-shot|still-life).*']
+
 PLANS = [  # generator, how often, size filter, sorter (weighted toward candids: the thinnest pool)
     (zimbio_prefix, 8, AT_LEAST_25KB, gossip),
     (candid_blog_prefix, 5, AT_LEAST_25KB, gossip),
@@ -216,6 +251,11 @@ PLANS = [  # generator, how often, size filter, sorter (weighted toward candids:
     (ss_prefix, 1, AT_LEAST_12KB, stock),
     (style_prefix, 5, AT_LEAST_25KB, runway),
     (getty_fashion_prefix, 3, AT_LEAST_25KB, editorial),
+    (amazon_prefix, 3, AT_LEAST_25KB, product),
+    (ebay_prefix, 2, AT_LEAST_25KB, product),
+    (ikea_prefix, 2, AT_LEAST_25KB, product),
+    (apple_prefix, 1, AT_LEAST_25KB, product),
+    (product_stock_prefix, 2, AT_LEAST_12KB, stock),
 ]
 WEIGHTED = [p for p in PLANS for _ in range(p[1])]
 
@@ -241,6 +281,7 @@ def sorter_for(orig):
     if 'shutterstock' in h: return stock
     if 'deviantart' in h: return deviantart
     if 'style.com' in h or 'firstview' in h: return runway
+    if re.search(r'amazon|ebayimg|ikea\.com|images\.apple\.com', h): return product
     return gossip
 
 def key(orig):
@@ -286,7 +327,7 @@ def probe():
 def main():
     os.makedirs(OUT, exist_ok=True)
     if os.environ.get('HARVEST_PROBE'): probe()
-    kinds = ['s', 'p', 'e', 'x', 'f']
+    kinds = ['s', 'p', 'e', 'x', 'f', 'o']
     new = {k: [] for k in kinds}
     queries = 0
     with ThreadPoolExecutor(WORKERS) as pool:
