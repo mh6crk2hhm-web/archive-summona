@@ -1,27 +1,32 @@
-50 queries; kept so far: s 642, p 1102, e 367, x 216
-kind s: 642 new this run, 11561 in total
-kind p: 1451 new this run, 2453 in total
-kind e: 377 new this run, 1521 in total
-kind x: 216 new this run, 2078 in total
-  www3.pictures.zimbio.com                4 queries, kept    724
-  image.shutterstock.com                  3 queries, kept    483
-  www.hawtcelebs.com                     11 queries, kept    304
-  www4.pictures.zimbio.com                6 queries, kept    249
-  www1.pictures.zimbio.com                4 queries, kept    220
-  fc02.deviantart.net                     1 queries, kept    216
-  media.gettyimages.com                   2 queries, kept    197
-  hollywoodlife.com                       4 queries, kept    197
-  celebmafia.com                          5 queries, kept     94
-  radaronline.com                         2 queries, kept      1
-  www.perezhilton.com                     1 queries, kept      1
-  www.celebuzz.com                        3 queries, kept      0
-  www.gotceleb.com                        2 queries, kept      0
-  www.hollywoodtuna.com                   1 queries, kept      0
-  www2.pictures.zimbio.com                2 queries, kept      0
-  www.popsugar.com                        1 queries, kept      0
-  www.egotastic.com                       1 queries, kept      0
-  fc04.deviantart.net                     1 queries, kept      0
-  www.idontlikeyouinthatway.com           1 queries, kept      0
+50 queries; kept so far: s 826, p 1235, e 558, x 0
+100 queries; kept so far: s 1278, p 2250, e 1191, x 237
+kind s: 1599 new this run, 12964 in total
+kind p: 2946 new this run, 5278 in total
+kind e: 1449 new this run, 2862 in total
+kind x: 285 new this run, 2363 in total
+  www4.pictures.zimbio.com               18 queries, kept   1328
+  media.gettyimages.com                   5 queries, kept    997
+  image.shutterstock.com                  9 queries, kept    872
+  www1.pictures.zimbio.com                9 queries, kept    670
+  www.hawtcelebs.com                     12 queries, kept    561
+  www3.pictures.zimbio.com               13 queries, kept    482
+  www2.pictures.zimbio.com               14 queries, kept    463
+  celebmafia.com                         14 queries, kept    389
+  fc03.deviantart.net                     2 queries, kept    237
+  hollywoodlife.com                       6 queries, kept    203
+  fc08.deviantart.net                     5 queries, kept     48
+  www.dlisted.com                         2 queries, kept     29
+  www.celebzz.com                         6 queries, kept      0
+  fc07.deviantart.net                     2 queries, kept      0
+  fc05.deviantart.net                     2 queries, kept      0
+  www.socialitelife.com                   1 queries, kept      0
+  fc01.deviantart.net                     1 queries, kept      0
+  fc02.deviantart.net                     4 queries, kept      0
+  www.popsugar.com                        2 queries, kept      0
+  fc04.deviantart.net                     2 queries, kept      0
+  www.justjaredjr.com                     1 queries, kept      0
   fc09.deviantart.net                     1 queries, kept      0
+  www.gotceleb.com                        2 queries, kept      0
+  fc06.deviantart.net                     2 queries, kept      0
   justjared.buzznet.com                   1 queries, kept      0
-  www.celebzz.com                         2 queries, kept      0
+  www.celebuzz.com                        1 queries, kept      0
