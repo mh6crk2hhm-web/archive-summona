@@ -19,7 +19,7 @@ UA = {'User-Agent': 'Flash Summoner harvest (github.com/mh6crk2hhm-web/archive-s
 OUT = os.path.join(os.path.dirname(__file__), '..', 'data')
 MINUTES = float(os.environ.get('HARVEST_MINUTES', '90'))
 DEADLINE = time.time() + MINUTES * 60
-WORKERS = 3
+WORKERS = 2  # the archive starts refusing connections when pushed harder
 CHUNK, CAP = 800, 80000
 log_lines, errors, hits, tried = [], {}, {}, {}
 
@@ -42,7 +42,7 @@ def cdx(params, tries=2):
 AT_LEAST_40KB = r'^([4-9][0-9]{4}|[0-9]{6,})$'
 AT_LEAST_25KB = r'^([2-9][0-9]{4}|[0-9]{6,})$'
 AT_LEAST_12KB = r'^(1[2-9][0-9]{3}|[2-9][0-9]{4}|[0-9]{6,})$'
-JUNK = re.compile(r'(logo|banner|avatar|icon|button|sprite|header|footer|spacer|pixel|badge|_t\.|-\d{2,3}x\d{2,3}\.|/ads?/|/static/|/assets/|thumb)', re.I)
+JUNK = re.compile(r'(logo|banner|avatar|icon|button|sprite|header|footer|spacer|pixel|badge|_t\.|-\d{2,3}x\d{2,3}\.|/ads?/|/static/|/assets/|thumb|s=170x170|[?&]w=[1-3]\d\d\b)', re.I)
 
 # What a file name says about the shot. Sightings are paparazzi; events are red carpet.
 STRONG_EVENT = re.compile(r'(premiere|red-carpet|awards|gala|photocall|arrivals)', re.I)
@@ -56,18 +56,31 @@ YEAR = re.compile(r'(19[5-9]\d|20[0-2]\d)')
 def slug(orig):
     return urllib.parse.unquote(orig.split('?')[0].rstrip('/').rsplit('/', 1)[-1])
 
+# Getty's own captions are formulaic: a sighting says so. "beach" or "seen from" alone is a landscape.
+GETTY_CANDID = re.compile(r'(sighting|is-seen|are-seen|seen-on-|seen-in-|seen-out|spotted|out-and-about|leaves-|leaving-|departs-|'
+                          r'arrives-at-lax|at-lax|paparazzi|steps-out|stepping-out|out-shopping|grabs-|shopping-in)', re.I)
+SPORT = re.compile(r'(match|league|football|soccer|nba|nfl|mlb|nhl|race|racing|cup-|championship|olympic|tennis|golf|grand-prix|'
+                   r'in-action|during-the|tries-to|scores|player|team|stadium|quarterback|pitcher|goalkeeper|playoff|tournament|'
+                   r'wrestl|boxing|ufc|marathon|rally|porsche|ferrari|formula|fifa|pitch|livestream)', re.I)
+
 def editorial(ts, orig):
     if JUNK.search(orig): return None
     sl = slug(orig)
+    if SPORT.search(sl): return None
     if STRONG_EVENT.search(sl): return 'e'
-    if CANDID.search(sl): return 'p'
-    if EVENT.search(sl): return 'e'
-    return 'e' if YEAR.search(sl) else 's'
+    if GETTY_CANDID.search(sl): return 'p'
+    if EVENT.search(sl) or re.search(r'(attend|host|pose|perform)', sl, re.I): return 'e'
+    return None if YEAR.search(sl) else 's'
+
+# Article furniture: header graphics, promos, screenshots and collages rather than photographs of someone.
+FURNITURE = re.compile(r'(-ftr|-lead|_lead|livestream|-watch|cast-photos|promo|poster|trailer|screenshot|screen-shot|tweet|instagram|'
+                       r'collage|split|graphic|gif|meme|quiz|vs-|-vs|split|side-by-side)', re.I)
 
 def gossip(ts, orig):
     # a gossip blog's upload folder is mostly paparazzi; events only when the file name says so
     if JUNK.search(orig): return None
     sl = slug(orig)
+    if FURNITURE.search(sl) or SPORT.search(sl): return None
     if STRONG_EVENT.search(sl) or (EVENT.search(sl) and not CANDID.search(sl)): return 'e'
     return 'p'
 
@@ -75,7 +88,10 @@ def stock(ts, orig):
     return None if JUNK.search(orig) else 's'
 
 DA_YEAR = re.compile(r'/(?:f|i)/((?:19|20)\d\d)/')
+DA_JUNK = re.compile(r'(profile_?pic|avatar|icon|(^|/)id_|_id_|_id\.|stamp|banner|journal|signature|button|_base|f2u|free_to_use|'
+                     r'preview|thumb|emote|pixel_?dolls?)', re.I)
 def deviantart(ts, orig):
+    if DA_JUNK.search(slug(orig)): return None
     m = DA_YEAR.search(orig)
     return 'x' if m and 2000 <= int(m.group(1)) <= 2013 and int(ts[:4]) <= 2016 else None
 
@@ -142,6 +158,13 @@ def one_query():
         if k: out.append((k, parts[0], parts[1]))
     return host, out
 
+def sorter_for(orig):
+    h = orig.split('/')[2].lower() if '//' in orig else ''
+    if 'gettyimages' in h: return editorial
+    if 'shutterstock' in h: return stock
+    if 'deviantart' in h: return deviantart
+    return gossip
+
 def key(orig):
     u = orig.split('?')[0].lower()
     return re.sub(r'^https?://(www\.)?', '', u).replace(':80/', '/')
@@ -185,20 +208,26 @@ def main():
                 except Exception as e:
                     errors[type(e).__name__] = errors.get(type(e).__name__, 0) + 1
                 if time.time() < DEADLINE:
-                    time.sleep(1.5)
+                    time.sleep(3)
                     running.add(pool.submit(one_query))
                 if queries % 50 == 0:
                     log('%d queries; kept so far: %s' % (queries, ', '.join('%s %d' % (k, len(new[k])) for k in kinds)))
                 break
+    # Everything found so far is sorted again under the current rules, so a fix reaches old finds too.
+    pool = [e for k in kinds for e in new[k]] + [e for k in kinds for e in load(k)]
+    buckets, seen = {k: [] for k in kinds}, set()
+    for ts, orig in pool:
+        kk = key(orig)
+        if kk in seen: continue
+        seen.add(kk)
+        k = sorter_for(orig)(ts, orig)
+        if k: buckets[k].append([ts, orig])
     for k in kinds:
-        seen, merged = set(), []
-        for e in new[k] + load(k):
-            kk = key(e[1])
-            if kk in seen: continue
-            seen.add(kk); merged.append(e)
+        merged = buckets[k]
         merged = merged[:CAP]
         random.shuffle(merged)
         if merged: save(k, merged)
+        if not merged: save(k, [])
         log('kind %s: %d new this run, %d in total' % (k, len(new[k]), len(merged)))
     for host in sorted(tried, key=lambda h: -hits.get(h, 0)):
         log('  %-36s %4d queries, kept %6d' % (host, tried[host], hits.get(host, 0)))
