@@ -1,28 +1,22 @@
-50 queries; kept so far: s 398, p 362, e 103, x 227, f 21
-kind s: 491 new this run, 13330 in total
-kind p: 800 new this run, 6015 in total
-kind e: 253 new this run, 2809 in total
-kind x: 227 new this run, 2590 in total
-kind f: 274 new this run, 521 in total
-  www1.pictures.zimbio.com                5 queries, kept    493
-  media.gettyimages.com                   2 queries, kept    397
-  www2.pictures.zimbio.com                5 queries, kept    259
-  media.gettyimages.com (fashion)         8 queries, kept    248
-  fc06.deviantart.net                     3 queries, kept    227
-  image.shutterstock.com                  5 queries, kept    198
-  www.hawtcelebs.com                      8 queries, kept    134
-  celebmafia.com                          4 queries, kept     48
-  hollywoodlife.com                       5 queries, kept     40
-  www.egotastic.com                       1 queries, kept      1
-  www4.pictures.zimbio.com                7 queries, kept      0
-  fc03.deviantart.net                     2 queries, kept      0
-  www3.pictures.zimbio.com                4 queries, kept      0
+kind s: 242 new this run, 13330 in total
+kind p: 321 new this run, 6290 in total
+kind e: 19 new this run, 2824 in total
+kind x: 0 new this run, 2590 in total
+kind f: 240 new this run, 733 in total
+  image.shutterstock.com                  4 queries, kept    242
+  media.gettyimages.com (fashion)         1 queries, kept    240
+  www1.pictures.zimbio.com               10 queries, kept    239
+  hollywoodlife.com                       3 queries, kept     73
+  www.hawtcelebs.com                      4 queries, kept     26
+  www2.pictures.zimbio.com                4 queries, kept      2
+  media.style.com                         7 queries, kept      0
   www.style.com                           3 queries, kept      0
-  fc07.deviantart.net                     2 queries, kept      0
-  www.celebuzz.com                        1 queries, kept      0
-  pagesix.com                             1 queries, kept      0
-  fc04.deviantart.net                     1 queries, kept      0
-  media.style.com                         3 queries, kept      0
-  fc09.deviantart.net                     1 queries, kept      0
-  fc05.deviantart.net                     1 queries, kept      0
-  www.celebzz.com                         1 queries, kept      0
+  www.popsugar.com                        1 queries, kept      0
+  media.gettyimages.com                   1 queries, kept      0
+  www.x17online.com                       1 queries, kept      0
+  www.celebzz.com                         2 queries, kept      0
+  www.idontlikeyouinthatway.com           1 queries, kept      0
+  www4.pictures.zimbio.com                2 queries, kept      0
+  celebmafia.com                          1 queries, kept      0
+  www3.pictures.zimbio.com                2 queries, kept      0
+  fc03.deviantart.net                     1 queries, kept      0
