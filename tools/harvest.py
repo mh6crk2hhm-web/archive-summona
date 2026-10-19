@@ -79,7 +79,7 @@ def editorial(ts, orig):
     sl = slug(orig)
     if SPORT.search(sl): return None
     if FASHION.search(sl): return 'f'
-    if PRODUCT.search(sl) and not YEAR.search(sl): return 'o'
+    if PRODUCT.search(sl) and not YEAR.search(sl) and not PEOPLE.search(sl): return 'o'
     if STRONG_EVENT.search(sl): return 'e'
     if GETTY_CANDID.search(sl): return 'p'
     if EVENT.search(sl) or re.search(r'(attend|host|pose|perform)', sl, re.I): return 'e'
@@ -99,9 +99,14 @@ def gossip(ts, orig):
     if STRONG_EVENT.search(sl) or (EVENT.search(sl) and not CANDID.search(sl)): return 'e'
     return 'p'
 
+# "Isolated on white" also describes stock portraits; a person in the caption makes it stock, not product.
+PEOPLE = re.compile(r'(woman|women|man-|-man|men-|girl|boy|people|person|businessman|businesswoman|child|kid|baby|couple|face|portrait|'
+                    r'teen|lady|guy|doctor|nurse|worker|student|senior|family|hands?-holding|model-)', re.I)
+
 def stock(ts, orig):
-    if JUNK.search(orig): return None
-    return 'o' if PRODUCT.search(slug(orig)) else 's'
+    if JUNK.search(orig) or '%22' in orig or '"' in orig: return None
+    sl = slug(orig)
+    return 'o' if PRODUCT.search(sl) and not PEOPLE.search(sl) else 's'
 
 def product(ts, orig):
     if re.search(r'(sprite|logo|icon|banner|button|nav|bg_|background_|hero_bg|_thumb|/thumbs?/|spacer|badge|promo|header)', orig, re.I): return None
@@ -251,7 +256,7 @@ PLANS = [  # generator, how often, size filter, sorter (weighted toward candids:
     (ss_prefix, 1, AT_LEAST_12KB, stock),
     (style_prefix, 5, AT_LEAST_25KB, runway),
     (getty_fashion_prefix, 3, AT_LEAST_25KB, editorial),
-    (amazon_prefix, 3, AT_LEAST_25KB, product),
+    (amazon_prefix, 3, AT_LEAST_12KB, product),
     (ebay_prefix, 2, AT_LEAST_25KB, product),
     (ikea_prefix, 2, AT_LEAST_25KB, product),
     (apple_prefix, 1, AT_LEAST_25KB, product),
