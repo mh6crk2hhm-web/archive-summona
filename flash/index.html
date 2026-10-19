@@ -347,6 +347,61 @@ function commons(searches, kind, label, opt = {}) {
   };
 }
 
+/* ================= Wayback Machine harvests =================
+   A job in this repository samples the Wayback Machine's capture index at random (tools/harvest.py) and writes
+   data/wb-<kind>-NN.json: [timestamp, original URL] pairs, sorted by what each file name says about the shot. */
+const WB = {};
+const HOSTS = [
+  [/gettyimages|asset-cache/, 'Getty Images'], [/wireimage/, 'WireImage'], [/filmmagic/, 'FilmMagic'], [/shutterstock/, 'Shutterstock'],
+  [/rexfeatures|rexusa/, 'Rex Features'], [/justjared/, 'Just Jared'], [/dailymail/, 'Daily Mail'], [/pagesix|nypost/, 'Page Six'],
+  [/radaronline/, 'Radar Online'], [/usmagazine|wennermedia/, 'Us Weekly'], [/eonline/, 'E! Online'], [/timeinc|people\.com/, 'People'],
+  [/thesun\./, 'The Sun'], [/mirror\.co\.uk/, 'The Mirror'], [/okmagazine/, 'OK!'], [/intouchweekly/, 'In Touch'], [/x17online/, 'X17'],
+  [/perezhilton/, 'Perez Hilton'], [/tmz/, 'TMZ'], [/thesuperficial/, 'The Superficial'], [/egotastic/, 'Egotastic'], [/hollywoodtuna/, 'Hollywood Tuna'],
+  [/dlisted/, 'Dlisted'], [/celebuzz/, 'Celebuzz'], [/pacificcoastnews/, 'Pacific Coast News'], [/splashnews/, 'Splash News'],
+  [/bauergriffin/, 'Bauer-Griffin'], [/fame-pictures/, 'FameFlynet'], [/hollywoodlife/, 'Hollywood Life'], [/socialitelife/, 'Socialite Life'],
+  [/celebitchy/, 'Celebitchy'], [/gotceleb/, 'GotCeleb'], [/hawtcelebs/, 'HawtCelebs'], [/deviantart/, 'DeviantArt']
+];
+const hostLabel = u => { const h = (/^https?:\/\/([^/:]+)/i.exec(u) || [])[1] || ''; const hit = HOSTS.find(([re]) => re.test(h)); return hit ? hit[1] : h.replace(/^www\./, ''); };
+const titleCase = s => s === s.toLowerCase() ? s.replace(/\b([a-z])/g, c => c.toUpperCase()) : s;
+// File names are often the only caption: "jennifer-aniston-sighting-in-los-angeles-picture-id1452", "dark_forest_by_someone-d2abc".
+function fromFileName(u) {
+  let f = decodeURIComponent(String(u).split('?')[0].replace(/\/+$/, '').split('/').pop() || '');
+  try { f = decodeURIComponent(f); } catch (e) { /* already plain */ }
+  f = f.replace(/\.(jpe?g|png|gif)$/i, '').replace(/-picture-id\d+$/i, '').replace(/^(stock-(photo|vector)-)/i, '')
+    .replace(/[-_](\d{2,4}x\d{2,4}|260nw|\d{5,})$/i, '').replace(/[-_]d[0-9a-z]{4,7}$/i, '').replace(/[-_]\d{1,3}$/, '');
+  let artist = '';
+  const by = /^(.*)_by_([\w-]+)$/i.exec(f);
+  if (by) { f = by[1]; artist = by[2]; }
+  const words = f.replace(/[-_+]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const letters = (words.match(/[a-z]/gi) || []).length;
+  if (letters < 6 || /^(article|img|image|dsc|p\d|photo)\b/i.test(words) || /[0-9a-f]{8,}/i.test(words.replace(/ /g, ''))) return { title: '', artist };
+  return { title: titleCase(words), artist };
+}
+function wayback(kind, label) {
+  return async () => {
+    if (!WB[kind]) {
+      try { WB[kind] = await getJSON('../data/wb-' + kind + '-meta.json?t=' + Date.now()); }
+      catch (e) { throw Object.assign(new Error('no index'), { why: /404/.test(e.message) ? 'first harvest still running' : '' }); }
+    }
+    const n = WB[kind].chunks || 0;
+    if (!n) return [];
+    const rows = await getJSON('../data/wb-' + kind + '-' + String(rand(0, n - 1)).padStart(2, '0') + '.json?b=' + encodeURIComponent(WB[kind].built || ''), 25000);
+    return sample(rows, 12).map(([ts, orig]) => {
+      const { title, artist } = fromFileName(orig);
+      const host = hostLabel(orig);
+      const year = kind === 'x' ? ((/\/(?:f|i)\/((?:19|20)\d\d)\//.exec(orig) || [])[1] || ts.slice(0, 4)) : ts.slice(0, 4);
+      const mark = /Getty|WireImage|FilmMagic|Shutterstock|Rex/.test(host) ? ' · watermarked preview' : '';
+      return {
+        kind, src: ['https://web.archive.org/web/' + ts + 'im_/' + orig], min: 240,
+        title, artist, date: year, subject: title ? subjectOf(title) : '',
+        medium: label + ' · ' + host + mark + ' · archived ' + ts.slice(0, 4),
+        source: host, credit: host + ', via the Wayback Machine',
+        link: 'https://web.archive.org/web/' + ts + '/' + orig
+      };
+    });
+  };
+}
+
 /* ================= Internet Archive Flash library ================= */
 const IA = 'https://archive.org';
 const iaFile = (id, name) => IA + '/download/' + encodeURIComponent(id) + '/' + String(name).split('/').map(encodeURIComponent).join('/');
@@ -514,6 +569,13 @@ const SOURCES = [
     }
   },
 
+  {
+    id: 'wbs', name: 'Stock previews, archived', full: 'Shutterstock and Getty, via the Wayback Machine', kinds: ['s'], weight: 3,
+    note: 'Live from a harvested index. Watermarked Shutterstock and Getty stock previews as archived by the Wayback Machine. No token needed.',
+    keep: 12,
+    refill: wayback('s', 'Stock photograph')
+  },
+
   /* ---- paparazzi ---- */
   {
     id: 'ssed', name: 'Shutterstock sightings', full: 'Shutterstock Editorial (watermarked preview)', kinds: ['p'], weight: 4, needsToken: true,
@@ -525,16 +587,19 @@ const SOURCES = [
     }
   },
   {
-    id: 'candid', name: 'Candid and on location', full: 'Candid celebrity photographs, via Wikimedia Commons', kinds: ['p'], weight: 1.5,
-    note: 'Live. The few candid shots that are free to use: stars filming on New York streets, spotted out, and the paparazzi pack itself. Thin next to Shutterstock’s sightings.',
-    refill: commons([
-      '"filming on location" filew:>1200', 'intitle:filming "New York" actor filew:>1200', '"on the set of" street filew:>1200',
-      'intitle:spotted filew:>1000', '"spotted in" celebrity filew:>1000', 'intitle:paparazzi filew:>1000', 'paparazzi photographers swarm filew:>1000',
-      '"out and about" actress filew:>1000', '"walking in" actor "New York City" filew:>1200'
-    ], 'p', 'Candid photograph')
+    id: 'wbp', name: 'Tabloids and agencies, archived', full: 'Tabloids and photo agencies, via the Wayback Machine', kinds: ['p'], weight: 5,
+    note: 'Live from a harvested index. Sightings, exits, beaches and coffee runs: Getty, WireImage, Rex and Shutterstock editorial previews whose file names say sighting or spotted, and the image folders of Just Jared, the Daily Mail, Page Six, Radar, Us Weekly, E!, X17, TMZ and the 2000s gossip blogs, as archived by the Wayback Machine.',
+    keep: 12,
+    refill: wayback('p', 'Paparazzi')
   },
 
   /* ---- red carpet ---- */
+  {
+    id: 'wbe', name: 'Agency red carpets, archived', full: 'Photo agencies, via the Wayback Machine', kinds: ['e'], weight: 3,
+    note: 'Live from a harvested index. Getty, WireImage, FilmMagic and Rex previews of premieres, galas and arrivals, and the event pictures in the tabloid folders, as archived by the Wayback Machine.',
+    keep: 12,
+    refill: wayback('e', 'Red carpet')
+  },
   {
     id: 'sscarpet', name: 'Shutterstock red carpet', full: 'Shutterstock Editorial (watermarked preview)', kinds: ['e'], weight: 2, needsToken: true,
     note: 'Live, with your token. Premieres, galas, front rows and after-parties from Shutterstock’s editorial wires, 2000 to now.',
@@ -624,6 +689,12 @@ const SOURCES = [
 
   /* ---- early web ---- */
   {
+    id: 'wbx', name: 'DeviantArt, 2003–2013', full: 'DeviantArt, via the Wayback Machine', kinds: ['x'], weight: 3,
+    note: 'Live from a harvested index. Random files from DeviantArt’s old image servers (fc01–fc09.deviantart.net), dated 2003–2013 by their own paths, as archived by the Wayback Machine. Unfiltered, so mature work turns up now and then.',
+    keep: 12,
+    refill: wayback('x', 'DeviantArt post')
+  },
+  {
     id: 'flashgames', name: 'Flash games', full: 'Internet Archive Flash library', kinds: ['x'], weight: 2,
     note: 'Live. Screenshots from the Internet Archive’s library of about 6,500 preserved Flash games, kept to 2000–2011 where the year is known. Record ↗ opens the game, playable in the browser.',
     keep: 6,
@@ -636,7 +707,7 @@ const SOURCES = [
       'x', 'Clip art', { mimes: /^image\/(svg\+xml|png|gif)$/, min: 200 })
   },
   {
-    id: 'deviantart', name: 'DeviantArt, before 2014', full: 'DeviantArt, via Wikimedia Commons', kinds: ['x'], weight: 1.5,
+    id: 'deviantart', name: 'DeviantArt on Commons', full: 'DeviantArt, via Wikimedia Commons', kinds: ['x'], weight: 0.5,
     note: 'Live. Work first posted on DeviantArt and released under Creative Commons, copied to Wikimedia Commons, kept to pieces dated before 2014. Only the openly licensed corner of DeviantArt; the site itself has no open feed.',
     refill: commons(['deviantart', 'intitle:deviantart', '"deviantart.com" filew:>500', 'deviantart digital art', 'deviantart fan art', 'deviantart wallpaper', 'deviantart photomanipulation'],
       'x', 'DeviantArt post', { mimes: /^image\/(jpeg|png|gif)$/, before: 2014, min: 400, limit: 40 })
