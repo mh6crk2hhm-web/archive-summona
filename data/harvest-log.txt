@@ -1,39 +1,37 @@
-50 queries; kept so far: s 234, p 290, e 229, x 0, f 889, o 666
-100 queries; kept so far: s 234, p 679, e 315, x 0, f 1138, o 1649
-kind s: 234 new this run, 22317 in total
-kind p: 843 new this run, 37172 in total
-kind e: 331 new this run, 12511 in total
-kind x: 0 new this run, 10530 in total
-kind f: 1388 new this run, 8745 in total
-kind o: 2149 new this run, 36467 in total
-  www.firstview.com                       6 queries, kept    753
-  i.ebayimg.com                           8 queries, kept    749
-  www.ikea.com                            7 queries, kept    500
-  images.apple.com                        6 queries, kept    484
-  image.shutterstock.com (product)        6 queries, kept    474
-  www4.pictures.zimbio.com               12 queries, kept    356
-  www.style.com                          11 queries, kept    352
-  www2.pictures.zimbio.com                9 queries, kept    311
-  media.gettyimages.com (fashion)         9 queries, kept    250
-  www3.pictures.zimbio.com                7 queries, kept    249
-  celebmafia.com                          6 queries, kept    184
-  media.gettyimages.com                   1 queries, kept    176
-  media.gettyimages.com (product)         6 queries, kept     56
-  www.hawtcelebs.com                      6 queries, kept     32
-  media.style.com                         5 queries, kept     19
-  fc08.deviantart.net                     3 queries, kept      0
-  m.media-amazon.com                      2 queries, kept      0
-  images-na.ssl-images-amazon.com        12 queries, kept      0
-  fc04.deviantart.net                     1 queries, kept      0
-  image.shutterstock.com                  2 queries, kept      0
-  fc05.deviantart.net                     2 queries, kept      0
+50 queries; kept so far: s 210, p 247, e 14, x 0, f 135, o 750
+100 queries; kept so far: s 243, p 633, e 68, x 2, f 610, o 2221
+kind s: 243 new this run, 22491 in total
+kind p: 653 new this run, 37557 in total
+kind e: 85 new this run, 12596 in total
+kind x: 240 new this run, 10770 in total
+kind f: 1257 new this run, 8850 in total
+kind o: 2471 new this run, 37898 in total
+  i.ebayimg.com                          11 queries, kept   1500
+  www.ikea.com                            8 queries, kept    750
+  www.style.com                          13 queries, kept    607
+  www4.pictures.zimbio.com                6 queries, kept    398
+  www.firstview.com                       7 queries, kept    279
+  image.shutterstock.com (product)        4 queries, kept    254
+  media.style.com                         6 queries, kept    250
+  www3.pictures.zimbio.com                6 queries, kept    238
+  fc07.deviantart.net                     2 queries, kept    238
+  media.gettyimages.com                   5 queries, kept    228
+  media.gettyimages.com (fashion)         8 queries, kept    120
+  hollywoodlife.com                       5 queries, kept     45
+  www.hawtcelebs.com                      5 queries, kept     40
+  fc08.deviantart.net                     4 queries, kept      2
+  www.celebzz.com                         2 queries, kept      0
+  www1.pictures.zimbio.com                8 queries, kept      0
+  images-na.ssl-images-amazon.com         7 queries, kept      0
+  www.hollywoodtuna.com                   1 queries, kept      0
+  celebmafia.com                          3 queries, kept      0
+  fc02.deviantart.net                     1 queries, kept      0
+  www2.pictures.zimbio.com                2 queries, kept      0
+  www.dlisted.com                         1 queries, kept      0
+  images.apple.com                        5 queries, kept      0
+  m.media-amazon.com                      3 queries, kept      0
   ecx.images-amazon.com                   3 queries, kept      0
-  fc03.deviantart.net                     2 queries, kept      0
-  www.justjared.com                       1 queries, kept      0
-  www1.pictures.zimbio.com                5 queries, kept      0
-  www.perezhilton.com                     1 queries, kept      0
-  hollywoodlife.com                       3 queries, kept      0
-  perezhilton.com                         2 queries, kept      0
-  www.thesuperficial.com                  1 queries, kept      0
-  fc07.deviantart.net                     1 queries, kept      0
-  radaronline.com                         1 queries, kept      0
+  media.gettyimages.com (product)         3 queries, kept      0
+  fc09.deviantart.net                     1 queries, kept      0
+  fc01.deviantart.net                     2 queries, kept      0
+  perezhilton.com                         1 queries, kept      0
