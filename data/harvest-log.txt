@@ -1,41 +1,40 @@
-50 queries; kept so far: s 569, p 630, e 168, x 0, f 282, o 603
-100 queries; kept so far: s 569, p 833, e 217, x 241, f 534, o 1853
-kind s: 569 new this run, 30597 in total
-kind p: 912 new this run, 80000 in total
-kind e: 298 new this run, 28531 in total
-kind x: 479 new this run, 31903 in total
-kind f: 884 new this run, 11371 in total
-kind o: 1853 new this run, 80000 in total
-  www.ikea.com                            7 queries, kept    750
-  i.ebayimg.com                           4 queries, kept    750
-  www.firstview.com                       5 queries, kept    514
-  image.shutterstock.com (product)        5 queries, kept    475
-  media.gettyimages.com (fashion)        13 queries, kept    344
-  www3.pictures.zimbio.com                8 queries, kept    249
-  image.shutterstock.com                  2 queries, kept    244
-  www4.pictures.zimbio.com                8 queries, kept    242
-  fc04.deviantart.net                     1 queries, kept    241
-  fc03.deviantart.net                     3 queries, kept    238
-  www1.pictures.zimbio.com                7 queries, kept    230
-  celebmafia.com                          9 queries, kept    225
-  media.gettyimages.com                   3 queries, kept    215
-  www2.pictures.zimbio.com                2 queries, kept    145
-  hollywoodlife.com                       6 queries, kept    104
-  www.celebitchy.com                      1 queries, kept     11
-  www.celebzz.com                         3 queries, kept      9
-  www.style.com                           4 queries, kept      7
-  www.hawtcelebs.com                      4 queries, kept      2
-  fc08.deviantart.net                     2 queries, kept      0
-  media.style.com                         8 queries, kept      0
-  fc06.deviantart.net                     1 queries, kept      0
-  www.perezhilton.com                     1 queries, kept      0
-  fc07.deviantart.net                     1 queries, kept      0
-  www.justjaredjr.com                     1 queries, kept      0
-  images.apple.com                        3 queries, kept      0
-  ecx.images-amazon.com                   5 queries, kept      0
-  radaronline.com                         2 queries, kept      0
-  www.justjared.com                       1 queries, kept      0
-  justjared.buzznet.com                   1 queries, kept      0
+50 queries; kept so far: s 72, p 809, e 219, x 0, f 253, o 544
+kind s: 139 new this run, 30601 in total
+kind p: 1095 new this run, 80000 in total
+kind e: 375 new this run, 28688 in total
+kind x: 463 new this run, 32366 in total
+kind f: 267 new this run, 11385 in total
+kind o: 2143 new this run, 80000 in total
+  www.ikea.com                           11 queries, kept    794
+  i.ebayimg.com                           5 queries, kept    750
+  www4.pictures.zimbio.com                5 queries, kept    489
+  image.shutterstock.com (product)        3 queries, kept    381
+  www.firstview.com                       4 queries, kept    250
+  www2.pictures.zimbio.com                6 queries, kept    243
+  www3.pictures.zimbio.com                1 queries, kept    242
+  fc03.deviantart.net                     1 queries, kept    237
+  www1.pictures.zimbio.com                3 queries, kept    227
+  fc02.deviantart.net                     1 queries, kept    226
+  celebmafia.com                          4 queries, kept    198
+  media.gettyimages.com (product)         3 queries, kept    179
+  media.gettyimages.com                   1 queries, kept    147
+  ecx.images-amazon.com                   4 queries, kept    106
+  www.dlisted.com                         1 queries, kept     13
+  cdn.justjared.com                       1 queries, kept      0
+  www.celebzz.com                         2 queries, kept      0
+  www.style.com                           2 queries, kept      0
+  media.gettyimages.com (fashion)        10 queries, kept      0
+  www.socialitelife.com                   1 queries, kept      0
+  images-na.ssl-images-amazon.com         6 queries, kept      0
+  m.media-amazon.com                      2 queries, kept      0
+  fc06.deviantart.net                     2 queries, kept      0
+  fc04.deviantart.net                     1 queries, kept      0
   fc01.deviantart.net                     1 queries, kept      0
-  pagesix.com                             1 queries, kept      0
-  images-na.ssl-images-amazon.com         3 queries, kept      0
+  hollywoodlife.com                       2 queries, kept      0
+  image.shutterstock.com                  1 queries, kept      0
+  fc07.deviantart.net                     1 queries, kept      0
+  images.apple.com                        2 queries, kept      0
+  www.idontlikeyouinthatway.com           2 queries, kept      0
+  fc05.deviantart.net                     1 queries, kept      0
+  www.hawtcelebs.com                      2 queries, kept      0
+  media.style.com                         2 queries, kept      0
