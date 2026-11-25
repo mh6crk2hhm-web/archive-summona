@@ -1,38 +1,39 @@
-50 queries; kept so far: s 318, p 278, e 163, x 0, f 546, o 728
-100 queries; kept so far: s 549, p 885, e 281, x 0, f 1801, o 2105
-kind s: 595 new this run, 30758 in total
-kind p: 1699 new this run, 80000 in total
-kind e: 435 new this run, 33213 in total
-kind x: 219 new this run, 38502 in total
-kind f: 1951 new this run, 11927 in total
-kind o: 3074 new this run, 80000 in total
-  i.ebayimg.com                           8 queries, kept   1000
-  www.ikea.com                            4 queries, kept    844
-  www.firstview.com                       6 queries, kept    750
-  www.style.com                           8 queries, kept    705
-  www4.pictures.zimbio.com               11 queries, kept    703
-  images.apple.com                        6 queries, kept    661
-  image.shutterstock.com (product)        3 queries, kept    489
-  www1.pictures.zimbio.com                6 queries, kept    371
-  media.gettyimages.com                   5 queries, kept    356
-  media.style.com                         3 queries, kept    250
-  www2.pictures.zimbio.com                6 queries, kept    248
-  www3.pictures.zimbio.com                5 queries, kept    244
-  image.shutterstock.com                  4 queries, kept    244
-  media.gettyimages.com (fashion)        15 queries, kept    231
-  fc08.deviantart.net                     3 queries, kept    219
-  hollywoodlife.com                       9 queries, kept    206
-  media.gettyimages.com (product)         5 queries, kept    199
-  www.hawtcelebs.com                      6 queries, kept    138
-  celebmafia.com                          7 queries, kept    111
-  www.celebzz.com                         3 queries, kept      4
+50 queries; kept so far: s 12, p 440, e 177, x 0, f 542, o 1101
+100 queries; kept so far: s 248, p 498, e 184, x 0, f 571, o 2012
+kind s: 314 new this run, 30758 in total
+kind p: 1068 new this run, 80000 in total
+kind e: 311 new this run, 33320 in total
+kind x: 235 new this run, 38737 in total
+kind f: 860 new this run, 11929 in total
+kind o: 2061 new this run, 80000 in total
+  images.apple.com                        6 queries, kept    902
+  celebmafia.com                          8 queries, kept    591
+  www.ikea.com                           10 queries, kept    500
+  i.ebayimg.com                           5 queries, kept    500
+  media.style.com                         8 queries, kept    260
+  www1.pictures.zimbio.com                8 queries, kept    250
+  www.firstview.com                       3 queries, kept    250
+  image.shutterstock.com                  1 queries, kept    242
+  www3.pictures.zimbio.com                9 queries, kept    239
+  www2.pictures.zimbio.com                8 queries, kept    237
+  fc04.deviantart.net                     2 queries, kept    235
+  image.shutterstock.com (product)        2 queries, kept    231
+  www.style.com                           6 queries, kept    223
+  media.gettyimages.com (fashion)        15 queries, kept    104
+  hollywoodlife.com                       3 queries, kept     47
+  www.hawtcelebs.com                      8 queries, kept     37
+  www.celebzz.com                         5 queries, kept      1
   ecx.images-amazon.com                   3 queries, kept      0
+  fc01.deviantart.net                     1 queries, kept      0
+  media.gettyimages.com                   3 queries, kept      0
+  www4.pictures.zimbio.com                9 queries, kept      0
+  fc03.deviantart.net                     2 queries, kept      0
+  fc06.deviantart.net                     1 queries, kept      0
+  m.media-amazon.com                      2 queries, kept      0
+  fc08.deviantart.net                     1 queries, kept      0
+  images-na.ssl-images-amazon.com         2 queries, kept      0
+  media.gettyimages.com (product)         1 queries, kept      0
   fc09.deviantart.net                     1 queries, kept      0
-  m.media-amazon.com                      4 queries, kept      0
-  images-na.ssl-images-amazon.com         6 queries, kept      0
-  fc04.deviantart.net                     1 queries, kept      0
-  www.popsugar.com                        1 queries, kept      0
+  www.idontlikeyouinthatway.com           1 queries, kept      0
   fc05.deviantart.net                     1 queries, kept      0
-  perezhilton.com                         1 queries, kept      0
-  www.egotastic.com                       1 queries, kept      0
-  fc06.deviantart.net                     2 queries, kept      0
+  www.gotceleb.com                        1 queries, kept      0
